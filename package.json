@@ -1,0 +1,24 @@
+{
+  "name": "elm-cqrs",
+  "version": "1.0.0",
+  "description": "A CQRS library to support proper segregation of commands and queries on the type level.",
+  "scripts": {
+    "test": "elm-test",
+    "coverage": "elm-coverage --silent --open --force",
+    "lint": "elm-review",
+    "format": "prettier . --write --ignore-path .prettierignore && elm-format . --yes",
+    "documentation": "elm-doc-preview"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "elm": "0.19.1-6",
+    "elm-coverage": "^0.4.1",
+    "elm-doc-preview": "^5.0.5",
+    "elm-format": "^0.8.7",
+    "elm-review": "^2.11.2",
+    "elm-test": "0.19.1-revision12",
+    "prettier": "^3.3.2"
+  }
+}

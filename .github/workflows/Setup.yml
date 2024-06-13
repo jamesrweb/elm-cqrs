@@ -1,0 +1,51 @@
+name: Setup
+
+on:
+  workflow_call:
+    inputs:
+      node-version:
+        required: true
+        type: string
+
+jobs:
+  setup-environment:
+    runs-on: ubuntu-latest
+    outputs:
+      store-path: ${{ steps.store-path.outputs.store-path }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Node.js ${{ inputs.node-version }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ inputs.node-version }}
+
+      - uses: pnpm/action-setup@v4
+        name: Install pnpm
+        with:
+          version: 9
+          run_install: false
+
+      - name: Get pnpm store directory
+        id: store-path
+        run: |
+          echo "store-path=$(pnpm store path --silent)" >> $GITHUB_ENV
+          echo "::set-output name=store-path::$(pnpm store path --silent)"
+
+      - uses: actions/cache@v4
+        name: Setup pnpm cache
+        with:
+          path: ${{ steps.store-path.outputs.store-path }}
+          key: ${{ runner.os }}-pnpm-store-node-${{ inputs.node-version }}-${{ hashFiles('**/pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-pnpm-store-node-${{ inputs.node-version }}-
+
+      - uses: actions/cache@v4
+        id: elm-cache
+        with:
+          path: ~/.elm
+          key: ${{ runner.os }}-elm-home-node-${{ inputs.node-version }}-${{ hashFiles('**/elm.json') }}
+
+      - name: Install PNPM dependencies
+        run: pnpm install --frozen-lockfile --strict-peer-dependencies

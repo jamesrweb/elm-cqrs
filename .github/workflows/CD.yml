@@ -1,0 +1,76 @@
+name: Continuous Deployment
+
+on:
+  push:
+    branches:
+      - master
+
+jobs:
+  setup-environment:
+    strategy:
+      matrix:
+        node-version: ["18.x", "20.x", "22.x"]
+
+    uses: jamesrweb/elm-cqrs/.github/workflows/Setup.yml@master
+    with:
+      node-version: ${{ matrix.node-version }}
+
+  test:
+    needs: setup-environment
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        name: Install pnpm
+        with:
+          version: 9
+          run_install: false
+
+      - name: Install PNPM dependencies
+        run: pnpm install --frozen-lockfile --strict-peer-dependencies
+
+      - name: Run `elm-test-rs`
+        run: pnpm test
+
+  lint:
+    needs: setup-environment
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        name: Install pnpm
+        with:
+          version: 9
+          run_install: false
+
+      - name: Install PNPM dependencies
+        run: pnpm install --frozen-lockfile --strict-peer-dependencies
+
+      - name: Run `elm-review`
+        run: pnpm lint
+
+  publish-elm-package:
+    needs: [test, lint]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        name: Install pnpm
+        with:
+          version: 9
+          run_install: false
+
+      - name: Install PNPM dependencies
+        run: pnpm install --frozen-lockfile --strict-peer-dependencies
+
+      - uses: dillonkearns/elm-publish-action@v1
+        id: publish
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          path-to-elm: ./node_modules/.bin/elm
