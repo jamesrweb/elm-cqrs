@@ -1,5 +1,5 @@
 module Cqrs.Query exposing
-    ( Response
+    ( Response, QueryError, QueryResponse
     , request, requestTask
     , succeed, fail
     , map, mapError, withDefault, succeeded, failed, data, reason
@@ -11,7 +11,7 @@ module Cqrs.Query exposing
 
 ## Types
 
-@docs Response
+@docs Response, QueryError, QueryResponse
 
 
 ## Actions
@@ -45,11 +45,23 @@ import Task exposing (Task)
 import Url exposing (Url)
 
 
-{-| Represents the possible response states of a query.
+{-| Represents the possible states of a query.
 -}
-type Response e a
+type QueryResponse e a
     = Data a
     | Error e
+
+
+{-| Represents the default inner data type of an `Error` variant.
+-}
+type alias QueryError =
+    String
+
+
+{-| Represents the default response state of a query. This is what will initially be returned from any `request` or `requestTask` invocation.
+-}
+type alias Response a =
+    QueryResponse QueryError a
 
 
 {-| Checks if a given `Cqrs.Query.Response` is a `Data` variant.
@@ -59,7 +71,7 @@ type Response e a
     succeeded (Error "reason") --> False
 
 -}
-succeeded : Response e a -> Bool
+succeeded : QueryResponse e a -> Bool
 succeeded response =
     case response of
         Data _ ->
@@ -76,7 +88,7 @@ succeeded response =
     failed (Error "reason") --> True
 
 -}
-failed : Response e a -> Bool
+failed : QueryResponse e a -> Bool
 failed response =
     case response of
         Data _ ->
@@ -93,7 +105,7 @@ failed response =
     reason (Error "reason") --> Just "reason"
 
 -}
-reason : Response e a -> Maybe e
+reason : QueryResponse e a -> Maybe e
 reason response =
     case response of
         Data _ ->
@@ -110,7 +122,7 @@ reason response =
     data (Error "reason") --> Nothing
 
 -}
-data : Response e a -> Maybe a
+data : QueryResponse e a -> Maybe a
 data response =
     case response of
         Data value ->
@@ -122,17 +134,17 @@ data response =
 
 {-| Decodes a given payload into a `Cqrs.Query.Response a`.
 -}
-decoder : Decoder a -> Decoder (Response String a)
+decoder : Decoder a -> Decoder (Response a)
 decoder itemDecoder =
     let
-        errorDecoder : Decoder (Response String a)
+        errorDecoder : Decoder (Response a)
         errorDecoder =
             Json.Decode.map fail <| Json.Decode.at [ "error" ] Json.Decode.string
 
-        successDecoder : Decoder (Response e a)
+        successDecoder : Decoder (QueryResponse e a)
         successDecoder =
             let
-                toData : Bool -> a -> Decoder (Response e a)
+                toData : Bool -> a -> Decoder (QueryResponse e a)
                 toData accepted value =
                     if accepted then
                         Json.Decode.succeed <| succeed value
@@ -153,7 +165,7 @@ decoder itemDecoder =
 
 {-| Maps the `Data` variant of a given `Cqrs.Query.Response a` and returns a `Cqrs.Query.Response b`.
 -}
-map : (a -> b) -> Response e a -> Response e b
+map : (a -> b) -> QueryResponse e a -> QueryResponse e b
 map fn response =
     case response of
         Data value ->
@@ -165,7 +177,7 @@ map fn response =
 
 {-| Maps the `Error` variant of a given `Cqrs.Query.Response a`.
 -}
-mapError : (e -> f) -> Response e a -> Response f a
+mapError : (e -> f) -> QueryResponse e a -> QueryResponse f a
 mapError fn response =
     case response of
         Data value ->
@@ -180,7 +192,7 @@ mapError fn response =
 This is useful for testing how your UI will respond to the sad path, without actually sending a query.
 
 -}
-fail : e -> Response e a
+fail : e -> QueryResponse e a
 fail =
     Error
 
@@ -190,7 +202,7 @@ fail =
 This is useful for testing how your UI will respond to the happy path, without actually sending a query.
 
 -}
-succeed : a -> Response e a
+succeed : a -> QueryResponse e a
 succeed =
     Data
 
@@ -198,7 +210,7 @@ succeed =
 {-| Sends a query to the given URL and returns a `Cmd` for the given `msg` containing the parsed `Cqrs.Query.Response a`.
 The value contained within the `Cqrs.Query.Response a`, will be the value parsed via the provided decoder.
 -}
-request : String -> Maybe (Http.Error -> String) -> (Response String a -> msg) -> Decoder a -> Cmd msg
+request : String -> Maybe (Http.Error -> String) -> (Response a -> msg) -> Decoder a -> Cmd msg
 request url errorMapper toMsg toData =
     let
         errorHandler : Http.Error -> String
@@ -217,14 +229,14 @@ request url errorMapper toMsg toData =
 {-| Sends a query to the given URL and returns a `Task` which will contain the parsed `Cqrs.Query.Response a`.
 The value contained within the `Cqrs.Query.Response a`, will be the value parsed via the provided decoder.
 -}
-requestTask : String -> Maybe (Http.Error -> String) -> Decoder a -> Task () (Response String a)
+requestTask : String -> Maybe (Http.Error -> String) -> Decoder a -> Task () (Response a)
 requestTask url errorMapper toData =
     let
         errorHandler : Http.Error -> String
         errorHandler =
             Maybe.withDefault errorToString errorMapper
 
-        query : Url -> Task () (Response String a)
+        query : Url -> Task () (Response a)
         query uri =
             RemoteData.Http.getTask (Url.toString uri) (decoder toData)
                 |> Task.map (fromRemoteData errorHandler)
@@ -236,10 +248,10 @@ requestTask url errorMapper toData =
 
 {-| Converts a given `RemoteData.WebData (Cqrs.Query.Response a)` into a `Cqrs.Query.Response a`.
 -}
-fromRemoteData : (Http.Error -> String) -> WebData (Response String a) -> Response String a
+fromRemoteData : (Http.Error -> String) -> WebData (Response a) -> Response a
 fromRemoteData errorToString response =
     let
-        mappedResponse : RemoteData.RemoteData (Response String a) (Response String a)
+        mappedResponse : RemoteData.RemoteData (Response a) (Response a)
         mappedResponse =
             RemoteData.mapBoth identity (errorToString >> fail) response
     in
@@ -257,14 +269,14 @@ fromRemoteData errorToString response =
             dataResponse
 
 
-invalidUrlFailure : Response String a
+invalidUrlFailure : Response a
 invalidUrlFailure =
     fail "An absolute URL must be provided in the format: <scheme ':' ['//' authority] path ['?' query] ['#' fragment]>"
 
 
 {-| Provides a default case for a `Cqrs.Query.Response` in place of the value held within the `Error` variant.
 -}
-withDefault : a -> Response e a -> a
+withDefault : a -> QueryResponse e a -> a
 withDefault default response =
     case response of
         Data value ->

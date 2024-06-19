@@ -1,5 +1,5 @@
 module Cqrs.Command exposing
-    ( Response
+    ( Response, CommandResponse, CommandError
     , request, requestTask
     , succeed, fail
     , map, mapError, withDefault, unwrap, succeeded, failed, reason
@@ -11,7 +11,7 @@ module Cqrs.Command exposing
 
 ## Types
 
-@docs Response
+@docs Response, CommandResponse, CommandError
 
 
 ## Actions
@@ -46,11 +46,23 @@ import Task exposing (Task)
 import Url exposing (Url)
 
 
-{-| Represents the possible response states of a command.
+{-| Represents the possible states of a command.
 -}
-type Response e a
+type CommandResponse e a
     = Succeeded a
     | Failed e
+
+
+{-| Represents the default inner data type of a `Failed` variant.
+-}
+type alias CommandError =
+    String
+
+
+{-| Represents the default response state of a command. This is what will initially be returned from any `request` or `requestTask` invocation.
+-}
+type alias Response =
+    CommandResponse CommandError ()
 
 
 {-| Constructs the `Succeeded` variant of a `Cqrs.Command.Response`.
@@ -58,7 +70,7 @@ type Response e a
 This is useful for testing how your UI will respond to the happy path, without actually sending a command.
 
 -}
-succeed : Response e ()
+succeed : Response
 succeed =
     Succeeded ()
 
@@ -68,7 +80,7 @@ succeed =
 This is useful for testing how your UI will respond to the sad path, without actually sending a command.
 
 -}
-fail : e -> Response e a
+fail : e -> CommandResponse e a
 fail =
     Failed
 
@@ -80,7 +92,7 @@ fail =
     succeeded (Failed "reason") --> False
 
 -}
-succeeded : Response e a -> Bool
+succeeded : CommandResponse e a -> Bool
 succeeded response =
     case response of
         Succeeded _ ->
@@ -97,7 +109,7 @@ succeeded response =
     failed (Failed "reason") --> True
 
 -}
-failed : Response e a -> Bool
+failed : CommandResponse e a -> Bool
 failed response =
     case response of
         Succeeded _ ->
@@ -114,7 +126,7 @@ failed response =
     reason (Failed "reason") --> Just "reason"
 
 -}
-reason : Response e a -> Maybe e
+reason : CommandResponse e a -> Maybe e
 reason response =
     case response of
         Succeeded _ ->
@@ -126,17 +138,17 @@ reason response =
 
 {-| Decodes a given payload into a `Cqrs.Command.Response`.
 -}
-decoder : Decoder (Response String ())
+decoder : Decoder Response
 decoder =
     let
-        error : Decoder (Response String a)
+        error : Decoder Response
         error =
             Json.Decode.map Failed <| Json.Decode.at [ "error" ] Json.Decode.string
 
-        success : Decoder (Response e ())
+        success : Decoder Response
         success =
             let
-                toData : Bool -> Decoder (Response e ())
+                toData : Bool -> Decoder Response
                 toData accepted =
                     if accepted then
                         Json.Decode.succeed <| Succeeded ()
@@ -155,14 +167,14 @@ decoder =
 
 {-| Sends a command to the given URL with the provided body and returns a parsed `Cqrs.Command.Response` in turn.
 -}
-request : String -> Maybe (Http.Error -> String) -> Json.Encode.Value -> (Response String () -> msg) -> Cmd msg
+request : String -> Maybe (Http.Error -> CommandError) -> Json.Encode.Value -> (Response -> msg) -> Cmd msg
 request url errorMapper body toMsg =
     let
         command : Url -> Cmd msg
         command uri =
             RemoteData.Http.post (Url.toString uri) (fromRemoteData errorHandler >> toMsg) decoder body
 
-        errorHandler : Http.Error -> String
+        errorHandler : Http.Error -> CommandError
         errorHandler =
             Maybe.withDefault errorToString errorMapper
     in
@@ -174,15 +186,15 @@ request url errorMapper body toMsg =
 {-| Sends a command to the given URL and returns a `Task` containing the parsed `Cqrs.Command.Response`.
 The value contained within the `Cqrs.Command.Response`, will be the value parsed via the provided decoder.
 -}
-requestTask : String -> Maybe (Http.Error -> String) -> Json.Encode.Value -> Task () (Response String ())
+requestTask : String -> Maybe (Http.Error -> CommandError) -> Json.Encode.Value -> Task () Response
 requestTask url errorMapper body =
     let
-        command : Url -> Task () (Response String ())
+        command : Url -> Task () Response
         command uri =
             RemoteData.Http.postTask (Url.toString uri) decoder body
                 |> Task.map (fromRemoteData errorHandler)
 
-        errorHandler : Http.Error -> String
+        errorHandler : Http.Error -> CommandError
         errorHandler =
             Maybe.withDefault errorToString errorMapper
     in
@@ -193,10 +205,10 @@ requestTask url errorMapper body =
 
 {-| Converts a given `RemoteData.WebData a` into a `Cqrs.Command.Response`.
 -}
-fromRemoteData : (Http.Error -> String) -> WebData a -> Response String ()
+fromRemoteData : (Http.Error -> CommandError) -> WebData a -> Response
 fromRemoteData errorToString response =
     let
-        mappedResponse : RemoteData.RemoteData (Response String ()) (Response String ())
+        mappedResponse : RemoteData.RemoteData Response Response
         mappedResponse =
             RemoteData.mapBoth (always <| Succeeded ()) (errorToString >> Failed) response
     in
@@ -214,14 +226,14 @@ fromRemoteData errorToString response =
             value
 
 
-invalidUrlFailure : Response String a
+invalidUrlFailure : Response
 invalidUrlFailure =
     fail "An absolute URL must be provided in the format: <scheme ':' ['//' authority] path ['?' query] ['#' fragment]>"
 
 
 {-| Maps the `Failed` variant of a given `Cqrs.Command.Response`.
 -}
-mapError : (e -> f) -> Response e a -> Response f a
+mapError : (e -> f) -> CommandResponse e a -> CommandResponse f a
 mapError fn response =
     case response of
         Succeeded value ->
@@ -233,7 +245,7 @@ mapError fn response =
 
 {-| Maps the `Succeeded` variant of a given `Cqrs.Command.Response`
 -}
-map : (a -> b) -> Response e a -> Response e b
+map : (a -> b) -> CommandResponse e a -> CommandResponse e b
 map fn response =
     case response of
         Succeeded value ->
@@ -245,7 +257,7 @@ map fn response =
 
 {-| Unwraps a homogeneous `Cqrs.Command.Response` to its' inner value from the given variant.
 -}
-unwrap : Response x x -> x
+unwrap : CommandResponse x x -> x
 unwrap response =
     case response of
         Succeeded value ->
@@ -257,7 +269,7 @@ unwrap response =
 
 {-| Provides a default case for a `Cqrs.Command.Response` where the `Succeeded` variant is in the default `()` state.
 -}
-withDefault : e -> Response e () -> e
+withDefault : e -> CommandResponse e () -> e
 withDefault default response =
     case response of
         Succeeded _ ->

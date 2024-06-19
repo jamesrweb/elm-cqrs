@@ -1,6 +1,6 @@
 module Unit.Cqrs.Command exposing (suite)
 
-import Cqrs.Command as Command exposing (Response)
+import Cqrs.Command as Command
 import Expect
 import Json.Decode
 import Test exposing (Test)
@@ -14,7 +14,7 @@ suite =
             [ Test.test "It decodes to a `Ok Succeeded` when the response has `succeeded` set to `true` and no `error` is present" <|
                 \_ ->
                     let
-                        decoded : Result Json.Decode.Error (Response String ())
+                        decoded : Result Json.Decode.Error Command.Response
                         decoded =
                             decode """{ "success" : true, "data": null }"""
                     in
@@ -22,7 +22,7 @@ suite =
             , Test.test "It decodes to a `Ok (Failed String)` when the response has `succeeded` set to `false` and an `error` is present" <|
                 \_ ->
                     let
-                        decoded : Result Json.Decode.Error (Response String ())
+                        decoded : Result Json.Decode.Error Command.Response
                         decoded =
                             decode """{ "success" : false, "error": "reason" }"""
                     in
@@ -30,7 +30,7 @@ suite =
             , Test.test "It decodes to a `Failed` when an `error` is present, even if the response data says `successful` was `true`" <|
                 \_ ->
                     let
-                        decoded : Result Json.Decode.Error (Response String ())
+                        decoded : Result Json.Decode.Error Command.Response
                         decoded =
                             decode """{ "success" : true, "error": "reason" }"""
                     in
@@ -38,7 +38,7 @@ suite =
             , Test.test "It decodes to an `Err Json.Decode.Error` when `success` is false and `error` is not present" <|
                 \_ ->
                     let
-                        decoded : Result Json.Decode.Error (Response String ())
+                        decoded : Result Json.Decode.Error Command.Response
                         decoded =
                             decode """{ "success" : false, "data": null }"""
                     in
@@ -122,6 +122,6 @@ suite =
         ]
 
 
-decode : String -> Result Json.Decode.Error (Response String ())
+decode : String -> Result Json.Decode.Error Command.Response
 decode =
     Helpers.run Command.decoder
