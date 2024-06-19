@@ -171,8 +171,8 @@ request url errorToString body toMsg =
         |> Maybe.withDefault (Cmd.Extra.perform <| toMsg invalidUrlFailure)
 
 
-{-| Sends a command to the given URL and returns a `Task` containing the parsed `Cqrs.Command.Response a`.
-The value contained within the `Cqrs.Command.Response a`, will be the value parsed via the provided decoder.
+{-| Sends a command to the given URL and returns a `Task` containing the parsed `Cqrs.Command.Response`.
+The value contained within the `Cqrs.Command.Response`, will be the value parsed via the provided decoder.
 -}
 requestTask : String -> Maybe (Http.Error -> String) -> Json.Encode.Value -> Task () Response
 requestTask url errorToString body =
@@ -219,7 +219,7 @@ invalidUrlFailure =
     fail "An absolute URL must be provided in the format: <scheme ':' ['//' authority] path ['?' query] ['#' fragment]>"
 
 
-{-| Maps the `Failed` variant of a given `Cqrs.Query.Response a`.
+{-| Maps the `Failed` variant of a given `Cqrs.Command.Response`.
 -}
 mapError : (String -> String) -> Response -> Response
 mapError fn response =
