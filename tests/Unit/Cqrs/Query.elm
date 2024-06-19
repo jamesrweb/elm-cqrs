@@ -14,7 +14,7 @@ suite =
             [ Test.test "It decodes to a `Ok (Data a)` when the response has `succeeded` set to `true` and no `error` is present" <|
                 \_ ->
                     let
-                        decoded : Result Json.Decode.Error (Response (List String))
+                        decoded : Result Json.Decode.Error (Response String (List String))
                         decoded =
                             decode """{ "success" : true, "data": [] }"""
                     in
@@ -22,7 +22,7 @@ suite =
             , Test.test "It decodes to a `Ok (Error String)` when the response has `succeeded` set to `false` and an `error` is present" <|
                 \_ ->
                     let
-                        decoded : Result Json.Decode.Error (Response (List String))
+                        decoded : Result Json.Decode.Error (Response String (List String))
                         decoded =
                             decode """{ "success" : false, "error": "reason" }"""
                     in
@@ -30,7 +30,7 @@ suite =
             , Test.test "It decodes to an `Error` when an `error` is present, even if the response data says `successful` was `true`" <|
                 \_ ->
                     let
-                        decoded : Result Json.Decode.Error (Response (List String))
+                        decoded : Result Json.Decode.Error (Response String (List String))
                         decoded =
                             decode """{ "success" : true, "error": "reason" }"""
                     in
@@ -38,7 +38,7 @@ suite =
             , Test.test "It decodes to an `Err Json.Decode.Error` when `success` is false and `error` is not present" <|
                 \_ ->
                     let
-                        decoded : Result Json.Decode.Error (Response (List String))
+                        decoded : Result Json.Decode.Error (Response String (List String))
                         decoded =
                             decode """{ "success" : false, "data": [] }"""
                     in
@@ -96,7 +96,7 @@ suite =
             , Test.test "It returns the error as it was when provided an `Error` variant" <|
                 \_ ->
                     let
-                        failure : Response a
+                        failure : Response String a
                         failure =
                             Query.fail "reason"
                     in
@@ -113,9 +113,20 @@ suite =
                 \_ ->
                     Expect.equal (Query.succeed [] |> Query.mapError identity |> Query.data) (Just [])
             ]
+        , Test.describe "Cqrs.Query.withDefault"
+            [ Test.test "It returns with the default value when given a `Failed` variant" <|
+                \_ ->
+                    Expect.equal (Query.fail "reason" |> Query.withDefault "test") "test"
+            , Test.test "It returns with the default value when given a mapped `Failed` variant" <|
+                \_ ->
+                    Expect.equal (Query.fail "reason" |> Query.mapError String.toUpper |> Query.withDefault "test") "test"
+            , Test.test "It returns with the data value when given a `Succeeded` variant" <|
+                \_ ->
+                    Expect.equal (Query.succeed "value" |> Query.withDefault "test") "value"
+            ]
         ]
 
 
-decode : String -> Result Json.Decode.Error (Response (List String))
+decode : String -> Result Json.Decode.Error (Response String (List String))
 decode =
     Helpers.run (Query.decoder <| Json.Decode.list Json.Decode.string)

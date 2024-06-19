@@ -14,7 +14,7 @@ suite =
             [ Test.test "It decodes to a `Ok Succeeded` when the response has `succeeded` set to `true` and no `error` is present" <|
                 \_ ->
                     let
-                        decoded : Result Json.Decode.Error Response
+                        decoded : Result Json.Decode.Error (Response String ())
                         decoded =
                             decode """{ "success" : true, "data": null }"""
                     in
@@ -22,7 +22,7 @@ suite =
             , Test.test "It decodes to a `Ok (Failed String)` when the response has `succeeded` set to `false` and an `error` is present" <|
                 \_ ->
                     let
-                        decoded : Result Json.Decode.Error Response
+                        decoded : Result Json.Decode.Error (Response String ())
                         decoded =
                             decode """{ "success" : false, "error": "reason" }"""
                     in
@@ -30,7 +30,7 @@ suite =
             , Test.test "It decodes to a `Failed` when an `error` is present, even if the response data says `successful` was `true`" <|
                 \_ ->
                     let
-                        decoded : Result Json.Decode.Error Response
+                        decoded : Result Json.Decode.Error (Response String ())
                         decoded =
                             decode """{ "success" : true, "error": "reason" }"""
                     in
@@ -38,7 +38,7 @@ suite =
             , Test.test "It decodes to an `Err Json.Decode.Error` when `success` is false and `error` is not present" <|
                 \_ ->
                     let
-                        decoded : Result Json.Decode.Error Response
+                        decoded : Result Json.Decode.Error (Response String ())
                         decoded =
                             decode """{ "success" : false, "data": null }"""
                     in
@@ -78,20 +78,50 @@ suite =
                 \_ ->
                     Expect.equal (Command.succeeded <| Command.fail "reason") False
             ]
+        , Test.describe "Cqrs.Command.map"
+            [ Test.test "It returns with the altered value when given a `Succeeded` variant" <|
+                \_ ->
+                    Expect.equal (Command.succeed |> Command.map (always "mapped") |> Command.unwrap) "mapped"
+            , Test.test "It does not map when given a `Failed` variant" <|
+                \_ ->
+                    Expect.equal (Command.fail "reason" |> Command.map (always "mapped") |> Command.reason) (Just "reason")
+            ]
         , Test.describe "Cqrs.Command.mapError"
             [ Test.test "It returns with the altered value when given a `Failed` variant" <|
                 \_ ->
-                    Expect.equal (Command.fail "reason" |> Command.mapError String.toUpper |> Command.reason) (Just "REASON")
+                    Expect.equal (Command.fail "reason" |> Command.mapError List.singleton |> Command.reason) (Just [ "reason" ])
             , Test.test "It returns with the same value when given a `Failed` variant and the `identity` function" <|
                 \_ ->
                     Expect.equal (Command.fail "reason" |> Command.mapError identity |> Command.reason) (Just "reason")
             , Test.test "It retains it's state when passed a `Succeeded` variant" <|
                 \_ ->
-                    Expect.equal (Command.succeed |> Command.mapError identity |> Command.succeeded) True
+                    Expect.equal (Command.succeed |> Command.mapError identity |> Command.reason) Nothing
+            ]
+        , Test.describe "Cqrs.Command.withDefault"
+            [ Test.test "It returns with the error value when given a `Failed` variant" <|
+                \_ ->
+                    Expect.equal (Command.fail "reason" |> Command.withDefault "test") "reason"
+            , Test.test "It returns with the error value when given a mapped `Failed` variant" <|
+                \_ ->
+                    Expect.equal (Command.fail "reason" |> Command.mapError String.toUpper |> Command.withDefault "test") "REASON"
+            , Test.test "It returns with the default value when given a `Succeeded` variant" <|
+                \_ ->
+                    Expect.equal (Command.succeed |> Command.withDefault "test") "test"
+            ]
+        , Test.describe "Cqrs.Command.unwrap"
+            [ Test.test "It unwraps a `Failed` variant to it's inner value" <|
+                \_ ->
+                    Expect.equal (Command.fail "reason" |> Command.map (always "value") |> Command.unwrap) "reason"
+            , Test.test "It unwraps a `Succeeded` variant to it's inner value when mapped" <|
+                \_ ->
+                    Expect.equal (Command.succeed |> Command.map (always "value") |> Command.unwrap) "value"
+            , Test.test "It unwraps a `Succeeded` variant to it's inner value when the error is mapped to match the default case" <|
+                \_ ->
+                    Expect.equal (Command.succeed |> Command.mapError (always ()) |> Command.unwrap) ()
             ]
         ]
 
 
-decode : String -> Result Json.Decode.Error Response
+decode : String -> Result Json.Decode.Error (Response String ())
 decode =
     Helpers.run Command.decoder
