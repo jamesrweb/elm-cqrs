@@ -1,5 +1,6 @@
-module Unit.Helpers exposing (run, success)
+module Unit.Helpers exposing (run, sanitise)
 
+import Char.Extra exposing (isControl)
 import Json.Decode exposing (Decoder)
 
 
@@ -8,11 +9,8 @@ run decoder input =
     Json.Decode.decodeString decoder input
 
 
-success : Result a b -> Bool
-success result =
-    case result of
-        Ok _ ->
-            True
-
-        Err _ ->
-            False
+sanitise : String -> String
+sanitise =
+    String.filter (\c -> not <| isControl c)
+        >> String.filter (\c -> c /= '"')
+        >> String.filter (\c -> c /= '\\')

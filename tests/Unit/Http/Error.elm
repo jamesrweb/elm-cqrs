@@ -1,4 +1,4 @@
-module Unit.Http.Error exposing (..)
+module Unit.Http.Error exposing (suite)
 
 import Expect
 import Fuzz
