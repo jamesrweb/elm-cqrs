@@ -1,6 +1,6 @@
 module Cqrs.Command exposing
-    ( Response, CommandResponse, CommandError
-    , request, requestTask
+    ( StandardRequestConfig, TaskRequestConfig, Response, CommandResponse, CommandError
+    , request, requestWithConfig, requestTask, requestTaskWithConfig
     , succeed, fail
     , map, mapError, withDefault, unwrap, succeeded, failed, reason
     , decoder
@@ -11,12 +11,12 @@ module Cqrs.Command exposing
 
 ## Types
 
-@docs Response, CommandResponse, CommandError
+@docs StandardRequestConfig, TaskRequestConfig, Response, CommandResponse, CommandError
 
 
 ## Actions
 
-@docs request, requestTask
+@docs request, requestWithConfig, requestTask, requestTaskWithConfig
 
 
 ## Constructors
@@ -36,7 +36,7 @@ module Cqrs.Command exposing
 -}
 
 import Cmd.Extra
-import Http
+import Http exposing (Header)
 import Http.Error exposing (errorToString)
 import Json.Decode exposing (Decoder)
 import Json.Encode
@@ -44,6 +44,25 @@ import RemoteData exposing (WebData)
 import RemoteData.Http
 import Task exposing (Task)
 import Url exposing (Url)
+
+
+{-| Configuration for requests resulting in a `Cmd`
+-}
+type alias StandardRequestConfig =
+    { headers : List Header
+    , timeout : Maybe Float
+    , tracker : Maybe String
+    , risky : Bool
+    }
+
+
+{-| Configuration for requests resulting in a `Task`
+-}
+type alias TaskRequestConfig =
+    { headers : List Header
+    , timeout : Maybe Float
+    , risky : Bool
+    }
 
 
 {-| Represents the possible states of a command.
@@ -59,7 +78,7 @@ type alias CommandError =
     String
 
 
-{-| Represents the default response state of a command. This is what will initially be returned from any `request` or `requestTask` invocation.
+{-| Represents the response state of a command.
 -}
 type alias Response =
     CommandResponse CommandError ()
@@ -183,6 +202,24 @@ request url errorMapper body toMsg =
         |> Maybe.withDefault (Cmd.Extra.perform <| toMsg invalidUrlFailure)
 
 
+{-| Similar to `request` but a `StandardRequestConfig` can be passed in for cases where customisation of the request headers, etc are desired.
+-}
+requestWithConfig : StandardRequestConfig -> String -> Maybe (Http.Error -> CommandError) -> Json.Encode.Value -> (Response -> msg) -> Cmd msg
+requestWithConfig config url errorMapper body toMsg =
+    let
+        command : Url -> Cmd msg
+        command uri =
+            RemoteData.Http.postWithConfig config (Url.toString uri) (fromRemoteData errorHandler >> toMsg) decoder body
+
+        errorHandler : Http.Error -> CommandError
+        errorHandler =
+            Maybe.withDefault errorToString errorMapper
+    in
+    Url.fromString url
+        |> Maybe.map command
+        |> Maybe.withDefault (Cmd.Extra.perform <| toMsg invalidUrlFailure)
+
+
 {-| Sends a command to the given URL and returns a `Task` containing the parsed `Cqrs.Command.Response`.
 The value contained within the `Cqrs.Command.Response`, will be the value parsed via the provided decoder.
 -}
@@ -192,6 +229,25 @@ requestTask url errorMapper body =
         command : Url -> Task () Response
         command uri =
             RemoteData.Http.postTask (Url.toString uri) decoder body
+                |> Task.map (fromRemoteData errorHandler)
+
+        errorHandler : Http.Error -> CommandError
+        errorHandler =
+            Maybe.withDefault errorToString errorMapper
+    in
+    Url.fromString url
+        |> Maybe.map command
+        |> Maybe.withDefault (Task.succeed invalidUrlFailure)
+
+
+{-| Similar to `requestTask` but a `TaskRequestConfig` can be passed in for cases where customisation of the request headers, etc are desired.
+-}
+requestTaskWithConfig : TaskRequestConfig -> String -> Maybe (Http.Error -> CommandError) -> Json.Encode.Value -> Task () Response
+requestTaskWithConfig config url errorMapper body =
+    let
+        command : Url -> Task () Response
+        command uri =
+            RemoteData.Http.postTaskWithConfig config (Url.toString uri) decoder body
                 |> Task.map (fromRemoteData errorHandler)
 
         errorHandler : Http.Error -> CommandError

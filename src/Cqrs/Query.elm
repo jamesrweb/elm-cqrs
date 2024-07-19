@@ -1,6 +1,6 @@
 module Cqrs.Query exposing
-    ( Response, QueryError, QueryResponse
-    , request, requestTask
+    ( StandardRequestConfig, TaskRequestConfig, Response, QueryError, QueryResponse
+    , request, requestWithConfig, requestTask, requestTaskWithConfig
     , succeed, fail
     , map, mapError, withDefault, succeeded, failed, data, reason
     , decoder
@@ -11,12 +11,12 @@ module Cqrs.Query exposing
 
 ## Types
 
-@docs Response, QueryError, QueryResponse
+@docs StandardRequestConfig, TaskRequestConfig, Response, QueryError, QueryResponse
 
 
 ## Actions
 
-@docs request, requestTask
+@docs request, requestWithConfig, requestTask, requestTaskWithConfig
 
 
 ## Constructors
@@ -36,13 +36,32 @@ module Cqrs.Query exposing
 -}
 
 import Cmd.Extra
-import Http
+import Http exposing (Header)
 import Http.Error exposing (errorToString)
 import Json.Decode exposing (Decoder)
 import RemoteData exposing (WebData)
 import RemoteData.Http
 import Task exposing (Task)
 import Url exposing (Url)
+
+
+{-| Configuration for requests resulting in a `Cmd`
+-}
+type alias StandardRequestConfig =
+    { headers : List Header
+    , timeout : Maybe Float
+    , tracker : Maybe String
+    , risky : Bool
+    }
+
+
+{-| Configuration for requests resulting in a `Task`
+-}
+type alias TaskRequestConfig =
+    { headers : List Header
+    , timeout : Maybe Float
+    , risky : Bool
+    }
 
 
 {-| Represents the possible states of a query.
@@ -58,7 +77,7 @@ type alias QueryError =
     String
 
 
-{-| Represents the default response state of a query. This is what will initially be returned from any `request` or `requestTask` invocation.
+{-| Represents the response state of a query.
 -}
 type alias Response a =
     QueryResponse QueryError a
@@ -226,6 +245,24 @@ request url errorMapper toMsg toData =
         |> Maybe.withDefault (Cmd.Extra.perform <| toMsg invalidUrlFailure)
 
 
+{-| Similar to `request` but a `StandardRequestConfig` can be passed in for cases where customisation of the request headers, etc are desired.
+-}
+requestWithConfig : StandardRequestConfig -> String -> Maybe (Http.Error -> String) -> (Response a -> msg) -> Decoder a -> Cmd msg
+requestWithConfig config url errorMapper toMsg toData =
+    let
+        errorHandler : Http.Error -> String
+        errorHandler =
+            Maybe.withDefault errorToString errorMapper
+
+        query : Url -> Cmd msg
+        query uri =
+            RemoteData.Http.getWithConfig config (Url.toString uri) (fromRemoteData errorHandler >> toMsg) (decoder toData)
+    in
+    Url.fromString url
+        |> Maybe.map query
+        |> Maybe.withDefault (Cmd.Extra.perform <| toMsg invalidUrlFailure)
+
+
 {-| Sends a query to the given URL and returns a `Task` which will contain the parsed `Cqrs.Query.Response a`.
 The value contained within the `Cqrs.Query.Response a`, will be the value parsed via the provided decoder.
 -}
@@ -239,6 +276,25 @@ requestTask url errorMapper toData =
         query : Url -> Task () (Response a)
         query uri =
             RemoteData.Http.getTask (Url.toString uri) (decoder toData)
+                |> Task.map (fromRemoteData errorHandler)
+    in
+    Url.fromString url
+        |> Maybe.map query
+        |> Maybe.withDefault (Task.succeed invalidUrlFailure)
+
+
+{-| Similar to `requestTask` but a `TaskRequestConfig` can be passed in for cases where customisation of the request headers, etc are desired.
+-}
+requestTaskWithConfig : TaskRequestConfig -> String -> Maybe (Http.Error -> String) -> Decoder a -> Task () (Response a)
+requestTaskWithConfig config url errorMapper toData =
+    let
+        errorHandler : Http.Error -> String
+        errorHandler =
+            Maybe.withDefault errorToString errorMapper
+
+        query : Url -> Task () (Response a)
+        query uri =
+            RemoteData.Http.getTaskWithConfig config (Url.toString uri) (decoder toData)
                 |> Task.map (fromRemoteData errorHandler)
     in
     Url.fromString url
