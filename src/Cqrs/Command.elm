@@ -1,7 +1,7 @@
 module Cqrs.Command exposing
-    ( StandardRequestConfig, TaskRequestConfig, Response, CommandResponse, CommandError
+    ( StandardRequestConfig, TaskRequestConfig, CommandResponse
     , request, requestWithConfig, requestTask, requestTaskWithConfig
-    , succeed, fail
+    , succeed, fail, fromRemoteData
     , map, mapError, withDefault, unwrap, succeeded, failed, reason
     , decoder
     )
@@ -11,7 +11,7 @@ module Cqrs.Command exposing
 
 ## Types
 
-@docs StandardRequestConfig, TaskRequestConfig, Response, CommandResponse, CommandError
+@docs StandardRequestConfig, TaskRequestConfig, CommandResponse
 
 
 ## Actions
@@ -21,7 +21,7 @@ module Cqrs.Command exposing
 
 ## Constructors
 
-@docs succeed, fail
+@docs succeed, fail, fromRemoteData
 
 
 ## Helpers
@@ -35,15 +35,12 @@ module Cqrs.Command exposing
 
 -}
 
-import Cmd.Extra
 import Http exposing (Header)
-import Http.Error exposing (errorToString)
 import Json.Decode exposing (Decoder)
 import Json.Encode
-import RemoteData exposing (WebData)
+import RemoteData exposing (RemoteData)
 import RemoteData.Http
 import Task exposing (Task)
-import Url exposing (Url)
 
 
 {-| Configuration for requests resulting in a `Cmd`
@@ -72,29 +69,17 @@ type CommandResponse e a
     | Failed e
 
 
-{-| Represents the default inner data type of a `Failed` variant.
--}
-type alias CommandError =
-    String
-
-
-{-| Represents the response state of a command.
--}
-type alias Response =
-    CommandResponse CommandError ()
-
-
-{-| Constructs the `Succeeded` variant of a `Cqrs.Command.Response`.
+{-| Constructs the `Succeeded` variant of a `Cqrs.Command.CommandResponse e ()`.
 
 This is useful for testing how your UI will respond to the happy path, without actually sending a command.
 
 -}
-succeed : Response
+succeed : CommandResponse e ()
 succeed =
     Succeeded ()
 
 
-{-| Constructs the `Failed` variant of a `Cqrs.Command.Response`.
+{-| Constructs the `Failed` variant of a `Cqrs.Command.CommandResponse e ()`.
 
 This is useful for testing how your UI will respond to the sad path, without actually sending a command.
 
@@ -104,7 +89,7 @@ fail =
     Failed
 
 
-{-| Checks if a given `Cqrs.Command.Response` is a `Succeeded` variant.
+{-| Checks if a given `Cqrs.Command.CommandResponse e ()` is a `Succeeded` variant.
 
     succeeded Succeeded --> True
 
@@ -121,7 +106,7 @@ succeeded response =
             False
 
 
-{-| Checks if a given `Cqrs.Command.Response` is a `Failed` variant.
+{-| Checks if a given `Cqrs.Command.CommandResponse e ()` is a `Failed` variant.
 
     failed Succeeded --> False
 
@@ -138,7 +123,7 @@ failed response =
             True
 
 
-{-| If a given `Cqrs.Command.Response` was unsuccessful, the reason for the failure will be returned.
+{-| If a given `Cqrs.Command.CommandResponse e ()` was unsuccessful, the reason for the failure will be returned.
 
     reason Succeeded --> Nothing
 
@@ -155,28 +140,18 @@ reason response =
             Just cause
 
 
-{-| Decodes a given payload into a `Cqrs.Command.Response`.
+{-| Decodes a given payload into a `Cqrs.Command.CommandResponse e ()`.
 -}
-decoder : Decoder Response
-decoder =
+decoder : Decoder e -> Decoder (CommandResponse e ())
+decoder errorFn =
     let
-        error : Decoder Response
+        error : Decoder (CommandResponse e ())
         error =
-            Json.Decode.map Failed <| Json.Decode.at [ "error" ] Json.Decode.string
+            Json.Decode.map Failed <| Json.Decode.at [ "error" ] errorFn
 
-        success : Decoder Response
+        success : Decoder (CommandResponse e ())
         success =
-            let
-                toData : Bool -> Decoder Response
-                toData accepted =
-                    if accepted then
-                        Json.Decode.succeed <| Succeeded ()
-
-                    else
-                        Json.Decode.fail "An unknown error occurred"
-            in
-            Json.Decode.field "success" Json.Decode.bool
-                |> Json.Decode.andThen toData
+            Json.Decode.succeed <| Succeeded ()
     in
     Json.Decode.oneOf
         [ error
@@ -184,110 +159,45 @@ decoder =
         ]
 
 
-{-| Sends a command to the given URL with the provided body and returns a parsed `Cqrs.Command.Response` in turn.
+{-| Sends a command to the given URL with the provided body and returns a parsed `Cqrs.Command.CommandResponse e ()` in turn.
 -}
-request : String -> Maybe (Http.Error -> CommandError) -> Json.Encode.Value -> (Response -> msg) -> Cmd msg
-request url errorMapper body toMsg =
-    let
-        command : Url -> Cmd msg
-        command uri =
-            RemoteData.Http.post (Url.toString uri) (fromRemoteData errorHandler >> toMsg) decoder body
-
-        errorHandler : Http.Error -> CommandError
-        errorHandler =
-            Maybe.withDefault errorToString errorMapper
-    in
-    Url.fromString url
-        |> Maybe.map command
-        |> Maybe.withDefault (Cmd.Extra.perform <| toMsg invalidUrlFailure)
+request : String -> (e -> f) -> f -> Json.Encode.Value -> Json.Decode.Decoder e -> (CommandResponse f () -> msg) -> Cmd msg
+request url errorMapper defaultError body toError toMsg =
+    RemoteData.Http.post url (fromRemoteData errorMapper defaultError >> toMsg) (decoder toError) body
 
 
 {-| Similar to `request` but a `StandardRequestConfig` can be passed in for cases where customisation of the request headers, etc are desired.
 -}
-requestWithConfig : StandardRequestConfig -> String -> Maybe (Http.Error -> CommandError) -> Json.Encode.Value -> (Response -> msg) -> Cmd msg
-requestWithConfig config url errorMapper body toMsg =
-    let
-        command : Url -> Cmd msg
-        command uri =
-            RemoteData.Http.postWithConfig config (Url.toString uri) (fromRemoteData errorHandler >> toMsg) decoder body
-
-        errorHandler : Http.Error -> CommandError
-        errorHandler =
-            Maybe.withDefault errorToString errorMapper
-    in
-    Url.fromString url
-        |> Maybe.map command
-        |> Maybe.withDefault (Cmd.Extra.perform <| toMsg invalidUrlFailure)
+requestWithConfig : StandardRequestConfig -> String -> (e -> f) -> f -> Json.Encode.Value -> Json.Decode.Decoder e -> (CommandResponse f () -> msg) -> Cmd msg
+requestWithConfig config url errorMapper defaultError body toError toMsg =
+    RemoteData.Http.postWithConfig config url (fromRemoteData errorMapper defaultError >> toMsg) (decoder toError) body
 
 
-{-| Sends a command to the given URL and returns a `Task` containing the parsed `Cqrs.Command.Response`.
-The value contained within the `Cqrs.Command.Response`, will be the value parsed via the provided decoder.
+{-| Sends a command to the given URL and returns a `Task` containing the parsed `Cqrs.Command.CommandResponse e ()`.
+The value contained within the `Cqrs.Command.CommandResponse e ()`, will be the value parsed via the provided decoder.
 -}
-requestTask : String -> Maybe (Http.Error -> CommandError) -> Json.Encode.Value -> Task () Response
-requestTask url errorMapper body =
-    let
-        command : Url -> Task () Response
-        command uri =
-            RemoteData.Http.postTask (Url.toString uri) decoder body
-                |> Task.map (fromRemoteData errorHandler)
-
-        errorHandler : Http.Error -> CommandError
-        errorHandler =
-            Maybe.withDefault errorToString errorMapper
-    in
-    Url.fromString url
-        |> Maybe.map command
-        |> Maybe.withDefault (Task.succeed invalidUrlFailure)
+requestTask : String -> (e -> f) -> f -> Json.Encode.Value -> Json.Decode.Decoder e -> Task () (CommandResponse f ())
+requestTask url errorMapper defaultError body toError =
+    RemoteData.Http.postTask url (decoder toError) body
+        |> Task.map (fromRemoteData errorMapper defaultError)
 
 
 {-| Similar to `requestTask` but a `TaskRequestConfig` can be passed in for cases where customisation of the request headers, etc are desired.
 -}
-requestTaskWithConfig : TaskRequestConfig -> String -> Maybe (Http.Error -> CommandError) -> Json.Encode.Value -> Task () Response
-requestTaskWithConfig config url errorMapper body =
-    let
-        command : Url -> Task () Response
-        command uri =
-            RemoteData.Http.postTaskWithConfig config (Url.toString uri) decoder body
-                |> Task.map (fromRemoteData errorHandler)
-
-        errorHandler : Http.Error -> CommandError
-        errorHandler =
-            Maybe.withDefault errorToString errorMapper
-    in
-    Url.fromString url
-        |> Maybe.map command
-        |> Maybe.withDefault (Task.succeed invalidUrlFailure)
+requestTaskWithConfig : TaskRequestConfig -> String -> (e -> f) -> f -> Json.Encode.Value -> Json.Decode.Decoder e -> Task () (CommandResponse f ())
+requestTaskWithConfig config url errorMapper defaultError body toError =
+    RemoteData.Http.postTaskWithConfig config url (decoder toError) body
+        |> Task.map (fromRemoteData errorMapper defaultError)
 
 
-{-| Converts a given `RemoteData.WebData a` into a `Cqrs.Command.Response`.
+{-| Converts a given `RemoteData x (CommandResponse e ())` into a `Cqrs.Command.CommandResponse e ()`.
 -}
-fromRemoteData : (Http.Error -> CommandError) -> WebData a -> Response
-fromRemoteData errorToString response =
-    let
-        mappedResponse : RemoteData.RemoteData Response Response
-        mappedResponse =
-            RemoteData.mapBoth (always <| Succeeded ()) (errorToString >> Failed) response
-    in
-    case mappedResponse of
-        RemoteData.NotAsked ->
-            Failed "The command has not been sent yet"
-
-        RemoteData.Loading ->
-            Failed "The response is still being loaded"
-
-        RemoteData.Failure error ->
-            error
-
-        RemoteData.Success value ->
-            value
+fromRemoteData : (e -> f) -> f -> RemoteData x (CommandResponse e ()) -> CommandResponse f ()
+fromRemoteData errorMapper defaultError response =
+    RemoteData.unwrap (fail defaultError) (mapError errorMapper) response
 
 
-invalidUrlFailure : Response
-invalidUrlFailure =
-    fail "An absolute URL must be provided in the format: <scheme ':' ['//' authority] path ['?' query] ['#' fragment]>"
-
-
-{-| Maps the `Failed` variant of a given `Cqrs.Command.Response`.
+{-| Maps the `Failed` variant of a given `Cqrs.Command.CommandResponse e ()`.
 -}
 mapError : (e -> f) -> CommandResponse e a -> CommandResponse f a
 mapError fn response =
@@ -299,7 +209,7 @@ mapError fn response =
             fail (fn error)
 
 
-{-| Maps the `Succeeded` variant of a given `Cqrs.Command.Response`
+{-| Maps the `Succeeded` variant of a given `Cqrs.Command.CommandResponse e ()`
 -}
 map : (a -> b) -> CommandResponse e a -> CommandResponse e b
 map fn response =
@@ -311,7 +221,8 @@ map fn response =
             fail error
 
 
-{-| Unwraps a homogeneous `Cqrs.Command.Response` to its' inner value from the given variant.
+{-| Unwraps a homogeneous `Cqrs.Command.CommandResponse e ()` to its' inner value from the given variant.
+Note: This function is almost useless since only `()` is ever viable to actually unwrap as a `x` value.
 -}
 unwrap : CommandResponse x x -> x
 unwrap response =
@@ -323,7 +234,7 @@ unwrap response =
             error
 
 
-{-| Provides a default case for a `Cqrs.Command.Response` where the `Succeeded` variant is in the default `()` state.
+{-| Provides a default case for a `Cqrs.Command.CommandResponse e ()` where the `Succeeded` variant is in the default `()` state.
 -}
 withDefault : e -> CommandResponse e () -> e
 withDefault default response =

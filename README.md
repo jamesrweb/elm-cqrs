@@ -16,25 +16,19 @@ It is important that your API responds in the following pseudocode format for bo
 
 ```elm
 type alias ApiSuccess a =
-    { -- Must be `True` to successfully decode the `data`, when decoding occurs
-      success : Bool
-    , data : a
+    { data : a
     }
 
-type alias ApiError =
-    { success : Bool
-    , error : String
+type alias ApiError e =
+    { error : e
     }
 ```
 
 1. If an `error` is present, the failure variant for `Cqrs.Command.Response` or `Cqrs.Query.Response` will be decoded.
-2. If the `data` is present in the response but the `success` value is `false`, the failure variant for `Cqrs.Command.Response` or `Cqrs.Query.Response` will be decoded.
-3. If the `data` key is present in a command response, it will be discarded, since commands do not return data.
-4. If the `success` key is `false` for a command or a query but the `error` is not set, the decoder will fail with an `Err` result.
+2. If the `data` key is present, the success variant for the given `Cqrs.Query.Response` will be decoded.
+3. If the `data` key is present in a `Cqrs.Command.Response`, it will be discarded since commands, by definition, do not return data.
 
 Please see the tests for more examples of how the decoders handle the different cases.
-
-Furthermore, all urls provided to `Cqrs.Query.request` and `Cqrs.Query.response` must be absolute [URLs](https://en.wikipedia.org/wiki/URL#Syntax).
 
 ### Commands
 
@@ -43,39 +37,33 @@ A command is an instruction which returns no value in response. It is simply suc
 To send a command, you can do the following:
 
 ```elm
-import Cqrs.Command as Command
+import Cqrs.Command as Command exposing (CommandResponse)
 import User exposing (User) -- An example module
+import Api.Error as Error exposing (Error) -- An example module
+
+type alias UserCommandResponse =
+    CommandResponse Error ()
 
 type Msg =
-    UserCommandExecuted Command.Response
-
-baseUrl : String
-baseUrl =
-    "https://example.com"
+    UserCommandExecuted UserCommandResponse
 
 addUserCommand : User -> Cmd Msg
 addUserCommand user =
     let
-        url : String
-        url = baseUrl ++ "/api/v1/user"
-
         body : Json.Encode.Value
         body =
             User.encode user
     in
-    Command.request url Nothing body UserCommandExecuted
+    Command.request "/api/v1/user" Error.Http Error.Unknown body Error.decoder UserCommandExecuted
 
-addUserCommandTask : User -> Task () UserResponse
+addUserCommandTask : User -> Task () UserCommandResponse
 addUserCommandTask user =
     let
-        url : String
-        url = baseUrl ++ "/api/v1/user"
-
         body : Json.Encode.Value
         body =
             User.encode user
     in
-    Command.requestTask url Nothing body
+    Command.requestTask "/api/v1/user" Error.Http Error.Unknown body Error.decoder
 ```
 
 ### Queries
@@ -85,50 +73,56 @@ A query is a request to look up a value or series of values in response. It will
 To execute a query, you can do the following:
 
 ```elm
-import Cqrs.Query as Query
+import Cqrs.Query as Query exposing (QueryResponse)
 import UUID exposing (UUID) -- elm install TSFoster/elm-uuid (for example)
-import User exposing (User) -- An example module
+import Models.User exposing (User) -- An example module
+import Api.Error as Error exposing (Error) -- An example module
 
-type alias UserResponse =
-    Query.Response User
+type alias UserQueryResponse =
+    QueryResponse Error User
 
 type Msg =
-    UserQueryExecuted UserResponse
-
-baseUrl : String
-baseUrl =
-    "https://example.com"
+    UserQueryExecuted UserQueryResponse
 
 findUserQuery : Uuid -> Cmd Msg
 findUserQuery id =
     let
-        url : String
-        url = baseUrl ++ "/api/v1/user/" ++ Uuid.toString id
+        path : String
+        path = "/api/v1/user/" ++ Uuid.toString id
     in
-    Query.request url Nothing UserQueryExecuted User.decoder
+    Query.request path Error.Http Error.Unknown UserQueryExecuted User.decoder Error.decoder
 
-findUserQueryTask : Uuid -> Task () UserResponse
+findUserQueryTask : Uuid -> Task () UserQueryResponse
 findUserQueryTask id =
     let
-        url : String
-        url = baseUrl ++ "/api/v1/user/" ++ Uuid.toString id
+        path : String
+        path = "/api/v1/user/" ++ Uuid.toString id
     in
-    Query.requestTask url Nothing User.decoder
+    Query.requestTask path Error.Http Error.Unknown User.decoder Error.decoder
 ```
 
-### Http error handlers
+### Error handlers and defaults
 
-In both cases, `Cqrs.Request.command` and `Cqrs.Request.query`, you can pass an optional http error handler in case you need custom errors or logging to be done, for example. If `Nothing` is provided, a default error handler will be triggered to format the incoming HTTP error.
+In both cases, `Cqrs.Request.command` and `Cqrs.Request.query`, you can pass an optional http error handler in case you need custom errors or logging to be done, for example.
 
-To create a custom http error handler, you need to implement a function which takes an `Http.Error` and returns a `String`. For example:
+To create a custom http error handler, you need to implement a function which takes an error of type `e` and returns a mapped value of type `f` which is probably some domain value but could be anything, for example being given an `Http.Error` and returns an `ApiError` domain error. For example:
 
 ```elm
-import Http exposing (Error(..)) -- elm install elm/http
+module Api.Error exposing (Error)
 
-myCustomHttpErrorHandler : Http.Error -> String
-myCustomHttpErrorHandler error =
-    case error of
-        ...
+import Http -- elm install elm/http
+
+type Error =
+    Unknown
+    | Http Http.Error
+
+errorMapper : Http.Error -> Error
+errorMapper error =
+    Http error
+
+defaultError : Error
+defaultError =
+    Unknown
 ```
 
 And then to use it in your requests, you pass it in the second parameter to either `Cqrs.Request.command` or `Cqrs.Request.query`, like so:
@@ -137,6 +131,6 @@ And then to use it in your requests, you pass it in the second parameter to eith
 import Cqrs.Query as Query
 import Cqrs.Command as Command
 
-Query.request url (Just myCustomHttpErrorHandler) ...
-Command.request url (Just myCustomHttpErrorHandler) ...
+Query.request url myCustomHttpErrorHandler defaultError ...
+Command.request url myCustomHttpErrorHandler defaultError ...
 ```

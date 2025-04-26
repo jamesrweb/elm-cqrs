@@ -1,0 +1,4 @@
+onlyBuiltDependencies:
+  - elm
+  - elm-coverage
+  - elm-format
