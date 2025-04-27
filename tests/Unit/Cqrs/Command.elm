@@ -4,7 +4,9 @@ import Cqrs.Command as Command
 import Expect
 import Fuzz
 import Json.Decode
+import Maybe.Extra
 import RemoteData
+import Result.Extra
 import String.Format
 import Test exposing (Test)
 import Unit.Helpers as Helpers
@@ -109,6 +111,65 @@ suite =
                 \default reason ->
                     Command.fromRemoteData identity default (RemoteData.Success <| Command.fail reason)
                         |> Expect.equal (Command.fail reason)
+            ]
+        , Test.describe "toMaybe"
+            [ Test.test "Converts a `CommandResponse e` in the `Succeeded` variant to a `Just` representation." <|
+                \_ ->
+                    Command.succeed
+                        |> Command.toMaybe
+                        |> Maybe.Extra.isJust
+                        |> Expect.equal True
+            , Test.fuzz Fuzz.string "Converts a `CommandResponse e` in the `Failed` variant to a `Nothing` representation." <|
+                \reason ->
+                    Command.fail reason
+                        |> Command.toMaybe
+                        |> Maybe.Extra.isNothing
+                        |> Expect.equal True
+            ]
+        , Test.describe "toResult"
+            [ Test.test "Converts a `CommandResponse e` in the `Succeeded` variant to an `Ok` representation." <|
+                \_ ->
+                    Command.succeed
+                        |> Command.toResult
+                        |> Result.Extra.isOk
+                        |> Expect.equal True
+            , Test.fuzz Fuzz.string "Converts a `CommandResponse e` in the `Failed` variant to an `Err` representation." <|
+                \reason ->
+                    Command.fail reason
+                        |> Command.toResult
+                        |> Result.Extra.isErr
+                        |> Expect.equal True
+            ]
+        , Test.describe "partition"
+            [ Test.fuzz3 Fuzz.unit Fuzz.string Fuzz.string "Partitions a `CommandResponse e` list into a `(List (), List e)`." <|
+                \data error1 error2 ->
+                    [ Command.succeed, Command.fail error1, Command.fail error2 ]
+                        |> Command.partition
+                        |> Expect.equal ( [ data ], [ error1, error2 ] )
+            ]
+        , Test.describe "unpack"
+            [ Test.fuzz2 Fuzz.string Fuzz.string "Maps the current variant of a given `CommandResponse e` and returns the data value when `Succeeded` is the current variant." <|
+                \data error ->
+                    Command.succeed
+                        |> Command.unpack (always error) (always data)
+                        |> Expect.equal data
+            , Test.fuzz2 Fuzz.string Fuzz.string "Maps the current variant of a given `CommandResponse e` and returns the error value when `Failed` is the current variant." <|
+                \data error ->
+                    Command.fail error
+                        |> Command.unpack identity (always data)
+                        |> Expect.equal error
+            ]
+        , Test.describe "unwrap"
+            [ Test.fuzz2 Fuzz.string Fuzz.string "Maps the current variant of a given `CommandResponse e` and returns the data value when `Succeeded` is the current variant." <|
+                \data error ->
+                    Command.succeed
+                        |> Command.unwrap error (always data)
+                        |> Expect.equal data
+            , Test.fuzz2 Fuzz.string Fuzz.string "Maps the current variant of a given `CommandResponse e` and returns the error value when `Failed` is the current variant." <|
+                \data error ->
+                    Command.fail error
+                        |> Command.unwrap error (always data)
+                        |> Expect.equal error
             ]
         ]
 
