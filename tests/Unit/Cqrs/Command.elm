@@ -17,7 +17,7 @@ suite =
             [ Test.test "It decodes to a `Ok Succeeded` when the response has `succeeded` set to `true` and no `error` is present" <|
                 \_ ->
                     let
-                        decoded : Result Json.Decode.Error (Command.CommandResponse String ())
+                        decoded : Result Json.Decode.Error (Command.CommandResponse String)
                         decoded =
                             decode """{  "data": null }"""
                     in
@@ -25,7 +25,7 @@ suite =
             , Test.fuzz Fuzz.string "It decodes to a `Ok Failed` when the response has `succeeded` set to `false` and an `error` is present" <|
                 \reason ->
                     let
-                        decoded : Result Json.Decode.Error (Command.CommandResponse String ())
+                        decoded : Result Json.Decode.Error (Command.CommandResponse String)
                         decoded =
                             """{  "error": "{{ reason }}" }"""
                                 |> String.Format.namedValue "reason" (Helpers.sanitise reason)
@@ -35,7 +35,7 @@ suite =
             , Test.fuzz Fuzz.string "It decodes to a `Ok Failed` when an `error` is present" <|
                 \reason ->
                     let
-                        decoded : Result Json.Decode.Error (Command.CommandResponse String ())
+                        decoded : Result Json.Decode.Error (Command.CommandResponse String)
                         decoded =
                             """{  "error": "{{ reason }}" }"""
                                 |> String.Format.namedValue "reason" (Helpers.sanitise reason)
@@ -77,14 +77,6 @@ suite =
                 \reason ->
                     Expect.equal True (Command.failed <| Command.fail reason)
             ]
-        , Test.describe "Cqrs.Command.map"
-            [ Test.fuzz Fuzz.string "It returns with the altered value when given a `Succeeded` variant" <|
-                \content ->
-                    Expect.equal content (Command.succeed |> Command.map (always content) |> Command.unwrap)
-            , Test.fuzz2 Fuzz.string Fuzz.string "It does not map when given a `Failed` variant" <|
-                \reason content ->
-                    Expect.equal (Just reason) (Command.fail reason |> Command.map (always content) |> Command.reason)
-            ]
         , Test.describe "Cqrs.Command.mapError"
             [ Test.fuzz Fuzz.string "It returns with the altered value when given a `Failed` variant" <|
                 \reason ->
@@ -95,28 +87,6 @@ suite =
             , Test.test "It retains it's state when passed a `Succeeded` variant" <|
                 \_ ->
                     Expect.equal Nothing (Command.succeed |> Command.mapError identity |> Command.reason)
-            ]
-        , Test.describe "Cqrs.Command.withDefault"
-            [ Test.fuzz2 Fuzz.string Fuzz.string "It returns with the error value when given a `Failed` variant" <|
-                \reason content ->
-                    Expect.equal reason (Command.fail reason |> Command.withDefault content)
-            , Test.fuzz2 Fuzz.string Fuzz.string "It returns with the error value when given a mapped `Failed` variant" <|
-                \reason content ->
-                    Expect.equal (String.toUpper reason) (Command.fail reason |> Command.mapError String.toUpper |> Command.withDefault content)
-            , Test.fuzz Fuzz.string "It returns with the default value when given a `Succeeded` variant" <|
-                \content ->
-                    Expect.equal content (Command.succeed |> Command.withDefault content)
-            ]
-        , Test.describe "Cqrs.Command.unwrap"
-            [ Test.fuzz2 Fuzz.string Fuzz.string "It unwraps a `Failed` variant to it's inner value" <|
-                \reason content ->
-                    Expect.equal reason (Command.fail reason |> Command.map (always content) |> Command.unwrap)
-            , Test.fuzz Fuzz.string "It unwraps a `Succeeded` variant to it's inner value when mapped" <|
-                \content ->
-                    Expect.equal content (Command.succeed |> Command.map (always content) |> Command.unwrap)
-            , Test.fuzz Fuzz.unit "It unwraps a `Succeeded` variant to it's inner value when the error is mapped to match the default case" <|
-                \unit ->
-                    Expect.equal unit (Command.succeed |> Command.mapError (always unit) |> Command.unwrap)
             ]
         , Test.describe "fromRemoteData"
             [ Test.fuzz3 Fuzz.string Fuzz.string Fuzz.string "It returns the given default when the remote data response is in the `RemoteData.NotAsked` variant" <|
@@ -143,6 +113,6 @@ suite =
         ]
 
 
-decode : String -> Result Json.Decode.Error (Command.CommandResponse String ())
+decode : String -> Result Json.Decode.Error (Command.CommandResponse String)
 decode =
     Helpers.run (Command.decoder Json.Decode.string)
