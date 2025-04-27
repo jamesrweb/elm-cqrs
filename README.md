@@ -108,7 +108,7 @@ In both cases, `Cqrs.Request.command` and `Cqrs.Request.query`, you can pass an 
 To create a custom http error handler, you need to implement a function which takes an error of type `e` and returns a mapped value of type `f` which is probably some domain value but could be anything, for example being given an `Http.Error` and returns an `ApiError` domain error. For example:
 
 ```elm
-module Api.Error exposing (Error)
+module Api.Error exposing (Error, errorMapper, defaultError)
 
 import Http -- elm install elm/http
 
@@ -116,8 +116,8 @@ type Error =
     Unknown
     | Http Http.Error
 
-errorMapper : Http.Error -> Error
-errorMapper error =
+httpErrorMapper : Http.Error -> Error
+httpErrorMapper error =
     Http error
 
 defaultError : Error
@@ -130,7 +130,8 @@ And then to use it in your requests, you pass it in the second parameter to eith
 ```elm
 import Cqrs.Query as Query
 import Cqrs.Command as Command
+import Api.Error exposing (httpErrorMapper, defaultError)
 
-Query.request url myCustomHttpErrorHandler defaultError ...
-Command.request url myCustomHttpErrorHandler defaultError ...
+Query.request url httpErrorMapper defaultError ...
+Command.request url httpErrorMapper defaultError ...
 ```
