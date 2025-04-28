@@ -1,6 +1,6 @@
 module Cqrs.Query exposing
-    ( StandardRequestConfig, TaskRequestConfig, QueryResponse
-    , request, requestWithConfig, requestTask, requestTaskWithConfig
+    ( StandardRequestConfiguration, TaskRequestConfiguration, RequestSettings, RequestWithConfigurationSettings, RequestTaskSettings, RequestTaskWithConfigurationSettings, QueryResponse
+    , request, requestWithConfiguration, requestTask, requestTaskWithConfiguration
     , succeed, fail, fromResult, fromRemoteData
     , data, reason
     , map, mapError, mapBoth, unwrap, unpack, partition, merge, filter, toResult, toMaybe
@@ -10,12 +10,12 @@ module Cqrs.Query exposing
 
 {-|
 
-@docs StandardRequestConfig, TaskRequestConfig, QueryResponse
+@docs StandardRequestConfiguration, TaskRequestConfiguration, RequestSettings, RequestWithConfigurationSettings, RequestTaskSettings, RequestTaskWithConfigurationSettings, QueryResponse
 
 
 ## HTTP
 
-@docs request, requestWithConfig, requestTask, requestTaskWithConfig
+@docs request, requestWithConfiguration, requestTask, requestTaskWithConfiguration
 
 
 ## Constructors
@@ -54,7 +54,7 @@ import Task exposing (Task)
 
 {-| Configuration for requests resulting in a `Cmd`
 -}
-type alias StandardRequestConfig =
+type alias StandardRequestConfiguration =
     { headers : List Header
     , timeout : Maybe Float
     , tracker : Maybe String
@@ -64,78 +64,126 @@ type alias StandardRequestConfig =
 
 {-| Configuration for requests resulting in a `Task`
 -}
-type alias TaskRequestConfig =
+type alias TaskRequestConfiguration =
     { headers : List Header
     , timeout : Maybe Float
     , risky : Bool
     }
 
 
+{-| Configuration settings for a `request`
+-}
+type alias RequestSettings data issue error msg =
+    { defaultError : error
+    , errorMapper : issue -> error
+    , toData : Decoder data
+    , toError : Decoder issue
+    , toMsg : QueryResponse error data -> msg
+    , url : String
+    }
+
+
+{-| Configuration settings for a `requestWithConfig`
+-}
+type alias RequestWithConfigurationSettings data issue error msg =
+    { config : StandardRequestConfiguration
+    , defaultError : error
+    , errorMapper : issue -> error
+    , toData : Decoder data
+    , toError : Decoder issue
+    , toMsg : QueryResponse error data -> msg
+    , url : String
+    }
+
+
+{-| Configuration settings for a `requestTask`
+-}
+type alias RequestTaskSettings data issue error =
+    { defaultError : error
+    , errorMapper : issue -> error
+    , toData : Decoder data
+    , toError : Decoder issue
+    , url : String
+    }
+
+
+{-| Configuration settings for a `requestTaskWithConfig`
+-}
+type alias RequestTaskWithConfigurationSettings data issue error =
+    { config : TaskRequestConfiguration
+    , defaultError : error
+    , errorMapper : issue -> error
+    , toData : Decoder data
+    , toError : Decoder issue
+    , url : String
+    }
+
+
 {-| Represents the possible states of a query.
 -}
-type QueryResponse e a
-    = Data a
-    | Error e
+type QueryResponse error data
+    = Data data
+    | Error error
 
 
-{-| Checks if a given `Cqrs.Query.QueryResponse e a` is a `Data` variant.
+{-| Checks if a given `QueryResponse error data` is a `Data` variant.
 
     succeeded (Data []) --> True
 
     succeeded (Error "reason") --> False
 
 -}
-succeeded : QueryResponse e a -> Bool
+succeeded : QueryResponse error data -> Bool
 succeeded =
     toResult >> Result.Extra.isOk
 
 
-{-| Checks if a given `Cqrs.Query.QueryResponse e a` is an `Error` variant.
+{-| Checks if a given `QueryResponse error data` is an `Error` variant.
 
     failed (Data []) --> False
 
     failed (Error "reason") --> True
 
 -}
-failed : QueryResponse e a -> Bool
+failed : QueryResponse error data -> Bool
 failed =
     toResult >> Result.Extra.isErr
 
 
-{-| If a given `Cqrs.Query.QueryResponse e a` was unsuccessful, the reason for the failure will be returned.
+{-| If a given `QueryResponse error data` was unsuccessful, the reason for the failure will be returned.
 
     reason (Data []) --> Nothing
 
     reason (Error "reason") --> Just "reason"
 
 -}
-reason : QueryResponse e a -> Maybe e
+reason : QueryResponse error data -> Maybe error
 reason =
     toResult >> Result.Extra.error
 
 
-{-| If a given `Cqrs.Query.QueryResponse e a` was successful, the data it contains will be returned.
+{-| If a given `QueryResponse error data` was successful, the data it contains will be returned.
 
     data (Data []) --> Just []
 
     data (Error "reason") --> Nothing
 
 -}
-data : QueryResponse e a -> Maybe a
+data : QueryResponse error data -> Maybe data
 data =
     toResult >> Result.toMaybe
 
 
-{-| Decodes a given payload into a `Cqrs.Query.QueryResponse e a`.
+{-| Decodes a given payload into a `QueryResponse error data`.
 -}
-decoder : Decoder a -> Decoder e -> Decoder (QueryResponse e a)
+decoder : Decoder data -> Decoder error -> Decoder (QueryResponse error data)
 decoder dataFn errorFn =
     let
-        errorDecoder : Decoder (QueryResponse e a)
+        errorDecoder : Decoder (QueryResponse error data)
         errorDecoder =
             Json.Decode.map fail <| Json.Decode.at [ "error" ] errorFn
 
-        successDecoder : Decoder (QueryResponse e a)
+        successDecoder : Decoder (QueryResponse error data)
         successDecoder =
             Json.Decode.map succeed <| Json.Decode.at [ "data" ] dataFn
     in
@@ -145,96 +193,94 @@ decoder dataFn errorFn =
         ]
 
 
-{-| Maps the `Data` variant of a given `Cqrs.Query.QueryResponse e a` and returns a `Cqrs.Query.Response b`.
+{-| Maps the `Data` variant of a given `QueryResponse error data`.
 -}
-map : (a -> b) -> QueryResponse e a -> QueryResponse e b
+map : (data -> nextData) -> QueryResponse error data -> QueryResponse error nextData
 map fn =
     toResult >> Result.map fn >> fromResult
 
 
-{-| Maps the `Error` variant of a given `Cqrs.Query.QueryResponse e a`.
+{-| Maps the `Error` variant of a given `QueryResponse error data`.
 -}
-mapError : (e -> f) -> QueryResponse e a -> QueryResponse f a
+mapError : (error -> nextError) -> QueryResponse error data -> QueryResponse nextError data
 mapError fn =
     toResult >> Result.mapError fn >> fromResult
 
 
-{-| Maps both the `Data` and the `Error` variant of a given `Cqrs.Query.QueryResponse e a`.
+{-| Maps both the `Data` and the `Error` variant of a given `QueryResponse error data`.
 -}
-mapBoth : (e -> f) -> (a -> b) -> QueryResponse e a -> QueryResponse f b
+mapBoth : (error -> nextError) -> (data -> nextData) -> QueryResponse error data -> QueryResponse nextError nextData
 mapBoth errorFn dataFn =
     toResult >> Result.Extra.mapBoth errorFn dataFn >> fromResult
 
 
-{-| Constructs the `Error` variant of a `Cqrs.Query.QueryResponse e a`.
+{-| Constructs the `Error` variant of a `QueryResponse error data`.
 
-This is useful for testing how your UI will respond to the sad path, without actually sending a query.
+This is useful for testing how your UI will respond to the sad path, without actually sending a query, for example.
 
 -}
-fail : e -> QueryResponse e a
+fail : error -> QueryResponse error data
 fail =
     Error
 
 
-{-| Constructs the `Data` variant of a `Cqrs.Query.QueryResponse e a`.
+{-| Constructs the `Data` variant of a `QueryResponse error data`.
 
-This is useful for testing how your UI will respond to the happy path, without actually sending a query.
+This is useful for testing how your UI will respond to the happy path, without actually sending a query, for example.
 
 -}
-succeed : a -> QueryResponse e a
+succeed : data -> QueryResponse error data
 succeed =
     Data
 
 
-{-| Sends a query to the given URL and returns a `Cmd` for the given `msg` containing the parsed `Cqrs.Query.QueryResponse e a`.
-The value contained within the `Cqrs.Query.QueryResponse e a`, will be the value parsed via the provided decoder.
+{-| Sends a query to the given URL and returns a `Cmd` for the given `msg` containing the parsed `QueryResponse error data`.
 -}
-request : String -> (e -> f) -> f -> (QueryResponse f a -> msg) -> Decoder a -> Decoder e -> Cmd msg
-request url errorMapper defaultError toMsg toData toError =
+request : RequestSettings data issue error msg -> Cmd msg
+request { defaultError, errorMapper, toData, toError, toMsg, url } =
     RemoteData.Http.get url (fromRemoteData errorMapper defaultError >> toMsg) (decoder toData toError)
 
 
 {-| Similar to `request` but a `StandardRequestConfig` can be passed in for cases where customisation of the request headers, etc are desired.
 -}
-requestWithConfig : StandardRequestConfig -> String -> (e -> f) -> f -> (QueryResponse f a -> msg) -> Decoder a -> Decoder e -> Cmd msg
-requestWithConfig config url errorMapper defaultError toMsg toData toError =
+requestWithConfiguration : RequestWithConfigurationSettings data issue error msg -> Cmd msg
+requestWithConfiguration { config, defaultError, errorMapper, toData, toError, toMsg, url } =
     RemoteData.Http.getWithConfig config url (fromRemoteData errorMapper defaultError >> toMsg) (decoder toData toError)
 
 
-{-| Sends a query to the given URL and returns a `Task` which will contain the parsed `Cqrs.Query.QueryResponse e a`.
-The value contained within the `Cqrs.Query.QueryResponse e a`, will be the value parsed via the provided decoder.
+{-| Sends a query to the given URL and returns a `Task` which will contain the parsed `QueryResponse error data`.
 -}
-requestTask : String -> (e -> f) -> f -> Decoder a -> Decoder e -> Task () (QueryResponse f a)
-requestTask url errorMapper defaultError toData toError =
+requestTask : RequestTaskSettings data issue error -> Task () (QueryResponse error data)
+requestTask { defaultError, errorMapper, toData, toError, url } =
     RemoteData.Http.getTask url (decoder toData toError)
         |> Task.map (fromRemoteData errorMapper defaultError)
 
 
 {-| Similar to `requestTask` but a `TaskRequestConfig` can be passed in for cases where customisation of the request headers, etc are desired.
 -}
-requestTaskWithConfig : TaskRequestConfig -> String -> (e -> f) -> f -> Decoder a -> Decoder e -> Task () (QueryResponse f a)
-requestTaskWithConfig config url errorMapper defaultError toData toError =
+requestTaskWithConfiguration : RequestTaskWithConfigurationSettings data issue error -> Task () (QueryResponse error data)
+requestTaskWithConfiguration { config, defaultError, errorMapper, toData, toError, url } =
     RemoteData.Http.getTaskWithConfig config url (decoder toData toError)
         |> Task.map (fromRemoteData errorMapper defaultError)
 
 
-{-| Converts a given `RemoteData x (Cqrs.Query.QueryResponse e a)` into a `Cqrs.Query.QueryResponse f a`.
+{-| Converts a given `RemoteData x (QueryResponse issue data)` into a `QueryResponse error data`.
 -}
-fromRemoteData : (e -> f) -> f -> RemoteData x (QueryResponse e a) -> QueryResponse f a
+fromRemoteData : (issue -> error) -> error -> RemoteData x (QueryResponse issue data) -> QueryResponse error data
 fromRemoteData errorHandler default response =
     RemoteData.unwrap (fail default) (mapError errorHandler) response
 
 
-{-| Provides a default case for a `Cqrs.Query.QueryResponse e a` in place of the value held within the `Error` variant.
+{-| Provides a default case for a `QueryResponse error data` in place of the value held within the `Error` variant.
 -}
-withDefault : a -> QueryResponse e a -> a
+withDefault : data -> QueryResponse error data -> data
 withDefault default =
     toResult >> Result.withDefault default
 
 
-{-| Converts a `Cqrs.Query.QueryResponse e a` to a `Result e a`
+{-| Converts a `QueryResponse error data` to a `Result error data`
 -}
-toResult : QueryResponse e a -> Result e a
+toResult : QueryResponse error data -> Result error data
 toResult response =
     case response of
         Data value ->
@@ -244,50 +290,50 @@ toResult response =
             Result.Err error
 
 
-{-| Converts a `Result e a` to a `Cqrs.Query.QueryResponse e a`
+{-| Converts a `Result error data` to a `QueryResponse error data`
 -}
-fromResult : Result e a -> QueryResponse e a
+fromResult : Result error data -> QueryResponse error data
 fromResult result =
     Result.Extra.unpack fail succeed result
 
 
-{-| Converts a `Cqrs.Query.QueryResponse e a` to a `Maybe a`
+{-| Converts a `QueryResponse error data` to a `Maybe data`
 -}
-toMaybe : QueryResponse e a -> Maybe a
+toMaybe : QueryResponse error data -> Maybe data
 toMaybe =
     toResult >> Result.toMaybe
 
 
-{-| When a given `Cqrs.Query.QueryResponse e a` is actually in the form `Cqrs.Query.QueryResponse a a` then we can return the underlying value from either state. This is especially useful when the error and value have been mapped to domain types.
+{-| When a given `QueryResponse error data` is actually in the form `QueryResponse value value` then we can return the underlying value from either state. This is especially useful when the error and value have been mapped to domain types.
 -}
-merge : QueryResponse a a -> a
+merge : QueryResponse value value -> value
 merge =
     toResult >> Result.Extra.merge
 
 
-{-| Partitions a series of `QueryResponse e a` instances into a tuple of successful and unsuccessful responses.
+{-| Partitions a series of `QueryResponse error data` instances into a tuple of successful and unsuccessful responses.
 -}
-partition : List (QueryResponse e a) -> ( List a, List e )
+partition : List (QueryResponse error data) -> ( List data, List error )
 partition =
     List.map toResult >> Result.Extra.partition
 
 
-{-| Convert a `QueryResponse e a` to an `a` by applying either the first function if the `QueryResponse e a` is an `Error` variant or the second function if the `QueryResponse e a` is a `Data` variant.
+{-| Convert a `QueryResponse error data` to a `value` by applying either the first function if the `QueryResponse error data` is an `Error` variant or the second function if the `QueryResponse error data` is a `Data` variant.
 -}
-unpack : (e -> b) -> (a -> b) -> QueryResponse e a -> b
+unpack : (error -> value) -> (data -> value) -> QueryResponse error data -> value
 unpack errorFn dataFn =
     toResult >> Result.Extra.unpack errorFn dataFn
 
 
-{-| Convert a `QueryResponse e a` to an `a` by applying a function if the `QueryResponse e a` is a `Data` variant or using the provided default value if it is an `Error` variant.
+{-| Convert a `QueryResponse error data` to a `value` by applying a function if the `QueryResponse error data` is a `Data` variant or using the provided default value if it is an `Error` variant.
 -}
-unwrap : b -> (a -> b) -> QueryResponse e a -> b
+unwrap : value -> (data -> value) -> QueryResponse error data -> value
 unwrap default dataFn =
     toResult >> Result.Extra.unwrap default dataFn
 
 
-{-| Filter a given `QueryResponse e a` if it is in the `Data` variant and should the predicate not pass, map to a `Error` variant with the given error. Useful for error value mapping within a given domain.
+{-| Filter a given `QueryResponse error data` if it is in the `Data` variant and should the predicate not pass, map to a `Error` variant with the given error. Useful for error value mapping within a given domain.
 -}
-filter : e -> (a -> Bool) -> QueryResponse e a -> QueryResponse e a
-filter errorMessage predicate =
-    toResult >> Result.Extra.filter errorMessage predicate >> fromResult
+filter : error -> (data -> Bool) -> QueryResponse error data -> QueryResponse error data
+filter error predicate =
+    toResult >> Result.Extra.filter error predicate >> fromResult
