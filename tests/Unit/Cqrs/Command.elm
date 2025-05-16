@@ -3,6 +3,7 @@ module Unit.Cqrs.Command exposing (suite)
 import Cqrs.Command as Command
 import Expect
 import Fuzz
+import Http
 import Json.Decode
 import Maybe.Extra
 import RemoteData
@@ -91,25 +92,25 @@ suite =
                     Expect.equal Nothing (Command.succeed |> Command.mapError identity |> Command.reason)
             ]
         , Test.describe "fromRemoteData"
-            [ Test.fuzz3 Fuzz.string Fuzz.string Fuzz.string "It returns the given default when the remote data response is in the `RemoteData.NotAsked` variant" <|
-                \default error reason ->
-                    Command.fromRemoteData (always error) default (RemoteData.Failure <| Command.fail reason)
-                        |> Expect.equal (Command.fail default)
-            , Test.fuzz3 Fuzz.string Fuzz.string Fuzz.string "It returns the given default when the remote data response is in the `RemoteData.Loading` variant" <|
-                \default error reason ->
-                    Command.fromRemoteData (always error) default (RemoteData.Failure <| Command.fail reason)
-                        |> Expect.equal (Command.fail default)
-            , Test.fuzz3 Fuzz.string Fuzz.string Fuzz.string "It returns the given default when the remote data response is in the `RemoteData.Failure` variant" <|
-                \default error reason ->
-                    Command.fromRemoteData (always error) default (RemoteData.Failure <| Command.fail reason)
-                        |> Expect.equal (Command.fail default)
-            , Test.fuzz2 Fuzz.string Fuzz.string "It returns the underlying `CommandResponse e ()` in the `Succeeded` variant when the remote data response is in the `RemoteData.Success` variant and the underlying `CommandResponse e ()` is in the `Succeeded` variant" <|
-                \default error ->
-                    Command.fromRemoteData (always error) default (RemoteData.Success <| Command.succeed)
-                        |> Expect.equal Command.succeed
-            , Test.fuzz2 Fuzz.string Fuzz.string "It returns the underlying `CommandResponse e ()` in the `Failed` variant when the remote data response is in the `RemoteData.Success` variant and the underlying `CommandResponse e ()` is in the `Failed` variant" <|
+            [ Test.fuzz2 Fuzz.string Fuzz.string "It returns the given default when the remote data response is in the `RemoteData.NotAsked` variant" <|
                 \default reason ->
-                    Command.fromRemoteData identity default (RemoteData.Success <| Command.fail reason)
+                    Command.fromRemoteData default (RemoteData.Failure <| Http.BadBody reason)
+                        |> Expect.equal (Command.fail default)
+            , Test.fuzz2 Fuzz.string Fuzz.string "It returns the given default when the remote data response is in the `RemoteData.Loading` variant" <|
+                \default reason ->
+                    Command.fromRemoteData default (RemoteData.Failure <| Http.BadBody reason)
+                        |> Expect.equal (Command.fail default)
+            , Test.fuzz2 Fuzz.string Fuzz.string "It returns the given default when the remote data response is in the `RemoteData.Failure` variant" <|
+                \default reason ->
+                    Command.fromRemoteData default (RemoteData.Failure <| Http.BadBody reason)
+                        |> Expect.equal (Command.fail default)
+            , Test.fuzz Fuzz.string "It returns the underlying `CommandResponse e ()` in the `Succeeded` variant when the remote data response is in the `RemoteData.Success` variant and the underlying `CommandResponse e ()` is in the `Succeeded` variant" <|
+                \reason ->
+                    Command.fromRemoteData reason (RemoteData.Success <| Command.succeed)
+                        |> Expect.equal Command.succeed
+            , Test.fuzz Fuzz.string "It returns the underlying `CommandResponse e ()` in the `Failed` variant when the remote data response is in the `RemoteData.Success` variant and the underlying `CommandResponse e ()` is in the `Failed` variant" <|
+                \reason ->
+                    Command.fromRemoteData reason (RemoteData.Success <| Command.fail reason)
                         |> Expect.equal (Command.fail reason)
             ]
         , Test.describe "toMaybe"

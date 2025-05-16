@@ -1,5 +1,5 @@
 module Cqrs.Query exposing
-    ( StandardRequestConfiguration, TaskRequestConfiguration, RequestSettings, RequestWithConfigurationSettings, RequestTaskSettings, RequestTaskWithConfigurationSettings, QueryResponse
+    ( StandardRequestConfiguration, TaskRequestConfiguration, RequestSettings, RequestWithConfigurationSettings, RequestTaskSettings, RequestTaskWithConfigurationSettings, QueryRequest(..), QueryResponse
     , request, requestWithConfiguration, requestTask, requestTaskWithConfiguration
     , succeed, fail, fromResult, fromRemoteData
     , data, reason
@@ -10,7 +10,7 @@ module Cqrs.Query exposing
 
 {-|
 
-@docs StandardRequestConfiguration, TaskRequestConfiguration, RequestSettings, RequestWithConfigurationSettings, RequestTaskSettings, RequestTaskWithConfigurationSettings, QueryResponse
+@docs StandardRequestConfiguration, TaskRequestConfiguration, RequestSettings, RequestWithConfigurationSettings, RequestTaskSettings, RequestTaskWithConfigurationSettings, QueryRequest, QueryResponse
 
 
 ## HTTP
@@ -46,7 +46,7 @@ module Cqrs.Query exposing
 
 import Http exposing (Header)
 import Json.Decode exposing (Decoder)
-import RemoteData exposing (RemoteData)
+import RemoteData exposing (WebData)
 import RemoteData.Http
 import Result.Extra
 import Task exposing (Task)
@@ -73,11 +73,10 @@ type alias TaskRequestConfiguration =
 
 {-| Configuration settings for a `request`
 -}
-type alias RequestSettings data issue error msg =
+type alias RequestSettings data error msg =
     { defaultError : error
-    , errorMapper : issue -> error
     , toData : Decoder data
-    , toError : Decoder issue
+    , toError : Decoder error
     , toMsg : QueryResponse error data -> msg
     , url : String
     }
@@ -85,12 +84,11 @@ type alias RequestSettings data issue error msg =
 
 {-| Configuration settings for a `requestWithConfig`
 -}
-type alias RequestWithConfigurationSettings data issue error msg =
+type alias RequestWithConfigurationSettings data error msg =
     { config : StandardRequestConfiguration
     , defaultError : error
-    , errorMapper : issue -> error
     , toData : Decoder data
-    , toError : Decoder issue
+    , toError : Decoder error
     , toMsg : QueryResponse error data -> msg
     , url : String
     }
@@ -98,25 +96,32 @@ type alias RequestWithConfigurationSettings data issue error msg =
 
 {-| Configuration settings for a `requestTask`
 -}
-type alias RequestTaskSettings data issue error =
+type alias RequestTaskSettings data error =
     { defaultError : error
-    , errorMapper : issue -> error
     , toData : Decoder data
-    , toError : Decoder issue
+    , toError : Decoder error
     , url : String
     }
 
 
 {-| Configuration settings for a `requestTaskWithConfig`
 -}
-type alias RequestTaskWithConfigurationSettings data issue error =
+type alias RequestTaskWithConfigurationSettings data error =
     { config : TaskRequestConfiguration
     , defaultError : error
-    , errorMapper : issue -> error
     , toData : Decoder data
-    , toError : Decoder issue
+    , toError : Decoder error
     , url : String
     }
+
+
+{-| Represents the possible types of query which can be executed depending on your needs.
+-}
+type QueryRequest data error msg
+    = Request (RequestSettings data error msg)
+    | RequestWithConfig (RequestWithConfigurationSettings data error msg)
+    | Task (RequestTaskSettings data error)
+    | TaskWithConfig (RequestTaskWithConfigurationSettings data error)
 
 
 {-| Represents the possible states of a query.
@@ -236,39 +241,39 @@ succeed =
 
 {-| Sends a query to the given URL and returns a `Cmd` for the given `msg` containing the parsed `QueryResponse error data`.
 -}
-request : RequestSettings data issue error msg -> Cmd msg
-request { defaultError, errorMapper, toData, toError, toMsg, url } =
-    RemoteData.Http.get url (fromRemoteData errorMapper defaultError >> toMsg) (decoder toData toError)
+request : RequestSettings data error msg -> Cmd msg
+request { defaultError, toData, toError, toMsg, url } =
+    RemoteData.Http.get url (fromRemoteData defaultError >> toMsg) (decoder toData toError)
 
 
 {-| Similar to `request` but a `StandardRequestConfig` can be passed in for cases where customisation of the request headers, etc are desired.
 -}
-requestWithConfiguration : RequestWithConfigurationSettings data issue error msg -> Cmd msg
-requestWithConfiguration { config, defaultError, errorMapper, toData, toError, toMsg, url } =
-    RemoteData.Http.getWithConfig config url (fromRemoteData errorMapper defaultError >> toMsg) (decoder toData toError)
+requestWithConfiguration : RequestWithConfigurationSettings data error msg -> Cmd msg
+requestWithConfiguration { config, defaultError, toData, toError, toMsg, url } =
+    RemoteData.Http.getWithConfig config url (fromRemoteData defaultError >> toMsg) (decoder toData toError)
 
 
 {-| Sends a query to the given URL and returns a `Task` which will contain the parsed `QueryResponse error data`.
 -}
-requestTask : RequestTaskSettings data issue error -> Task () (QueryResponse error data)
-requestTask { defaultError, errorMapper, toData, toError, url } =
+requestTask : RequestTaskSettings data error -> Task () (QueryResponse error data)
+requestTask { defaultError, toData, toError, url } =
     RemoteData.Http.getTask url (decoder toData toError)
-        |> Task.map (fromRemoteData errorMapper defaultError)
+        |> Task.map (fromRemoteData defaultError)
 
 
 {-| Similar to `requestTask` but a `TaskRequestConfig` can be passed in for cases where customisation of the request headers, etc are desired.
 -}
-requestTaskWithConfiguration : RequestTaskWithConfigurationSettings data issue error -> Task () (QueryResponse error data)
-requestTaskWithConfiguration { config, defaultError, errorMapper, toData, toError, url } =
+requestTaskWithConfiguration : RequestTaskWithConfigurationSettings data error -> Task () (QueryResponse error data)
+requestTaskWithConfiguration { config, defaultError, toData, toError, url } =
     RemoteData.Http.getTaskWithConfig config url (decoder toData toError)
-        |> Task.map (fromRemoteData errorMapper defaultError)
+        |> Task.map (fromRemoteData defaultError)
 
 
-{-| Converts a given `RemoteData x (QueryResponse issue data)` into a `QueryResponse error data`.
+{-| Converts a given `WebData (QueryResponse issue data)` into a `QueryResponse error data`.
 -}
-fromRemoteData : (issue -> error) -> error -> RemoteData x (QueryResponse issue data) -> QueryResponse error data
-fromRemoteData errorHandler default response =
-    RemoteData.unwrap (fail default) (mapError errorHandler) response
+fromRemoteData : error -> WebData (QueryResponse error data) -> QueryResponse error data
+fromRemoteData defaultError response =
+    RemoteData.unwrap (fail defaultError) identity response
 
 
 {-| Provides a default case for a `QueryResponse error data` in place of the value held within the `Error` variant.

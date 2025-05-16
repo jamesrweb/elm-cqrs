@@ -3,6 +3,7 @@ module Unit.Cqrs.Query exposing (suite)
 import Cqrs.Query as Query
 import Expect
 import Fuzz
+import Http
 import Json.Decode
 import Maybe.Extra
 import RemoteData
@@ -132,25 +133,25 @@ suite =
                     Expect.equal value (Query.succeed value |> Query.withDefault default)
             ]
         , Test.describe "fromRemoteData"
-            [ Test.fuzz3 Fuzz.string Fuzz.string Fuzz.string "It returns the given default when the remote data response is in the `RemoteData.NotAsked` variant" <|
-                \default error reason ->
-                    Query.fromRemoteData (always error) default (RemoteData.Failure <| Query.fail reason)
-                        |> Expect.equal (Query.fail default)
-            , Test.fuzz3 Fuzz.string Fuzz.string Fuzz.string "It returns the given default when the remote data response is in the `RemoteData.Loading` variant" <|
-                \default error reason ->
-                    Query.fromRemoteData (always error) default (RemoteData.Failure <| Query.fail reason)
-                        |> Expect.equal (Query.fail default)
-            , Test.fuzz3 Fuzz.string Fuzz.string Fuzz.string "It returns the given default when the remote data response is in the `RemoteData.Failure` variant" <|
-                \default error reason ->
-                    Query.fromRemoteData (always error) default (RemoteData.Failure <| Query.fail reason)
-                        |> Expect.equal (Query.fail default)
-            , Test.fuzz3 Fuzz.string Fuzz.string Fuzz.int "It returns the underlying `QueryResponse e a` in the `Data` variant when the remote data response is in the `RemoteData.Success` variant and the underlying `QueryResponse e a` is in the `Data` variant" <|
-                \default error data ->
-                    Query.fromRemoteData (always error) default (RemoteData.Success <| Query.succeed data)
-                        |> Expect.equal (Query.succeed data)
-            , Test.fuzz2 Fuzz.string Fuzz.string "It returns the underlying `QueryResponse e a` in the `Error` variant when the remote data response is in the `RemoteData.Success` variant and the underlying `QueryResponse e a` is in the `Error` variant" <|
+            [ Test.fuzz2 Fuzz.string Fuzz.string "It returns the given default when the remote data response is in the `RemoteData.NotAsked` variant" <|
                 \default reason ->
-                    Query.fromRemoteData identity default (RemoteData.Success <| Query.fail reason)
+                    Query.fromRemoteData default (RemoteData.Failure <| Http.BadBody reason)
+                        |> Expect.equal (Query.fail default)
+            , Test.fuzz2 Fuzz.string Fuzz.string "It returns the given default when the remote data response is in the `RemoteData.Loading` variant" <|
+                \default reason ->
+                    Query.fromRemoteData default (RemoteData.Failure <| Http.BadBody reason)
+                        |> Expect.equal (Query.fail default)
+            , Test.fuzz2 Fuzz.string Fuzz.string "It returns the given default when the remote data response is in the `RemoteData.Failure` variant" <|
+                \default reason ->
+                    Query.fromRemoteData default (RemoteData.Failure <| Http.BadBody reason)
+                        |> Expect.equal (Query.fail default)
+            , Test.fuzz2 Fuzz.string Fuzz.int "It returns the underlying `QueryResponse e a` in the `Data` variant when the remote data response is in the `RemoteData.Success` variant and the underlying `QueryResponse e a` is in the `Data` variant" <|
+                \reason data ->
+                    Query.fromRemoteData reason (RemoteData.Success <| Query.succeed data)
+                        |> Expect.equal (Query.succeed data)
+            , Test.fuzz Fuzz.string "It returns the underlying `QueryResponse e a` in the `Error` variant when the remote data response is in the `RemoteData.Success` variant and the underlying `QueryResponse e a` is in the `Error` variant" <|
+                \reason ->
+                    Query.fromRemoteData reason (RemoteData.Success <| Query.fail reason)
                         |> Expect.equal (Query.fail reason)
             ]
         , Test.describe "toMaybe"

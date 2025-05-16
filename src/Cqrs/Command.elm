@@ -1,5 +1,5 @@
 module Cqrs.Command exposing
-    ( StandardRequestConfiguration, TaskRequestConfiguration, RequestSettings, RequestWithConfigurationSettings, RequestTaskSettings, RequestTaskWithConfigurationSettings, CommandResponse
+    ( StandardRequestConfiguration, TaskRequestConfiguration, RequestSettings, RequestWithConfigurationSettings, RequestTaskSettings, RequestTaskWithConfigurationSettings, CommandRequest(..), CommandResponse
     , request, requestWithConfiguration, requestTask, requestTaskWithConfiguration
     , succeed, fail, fromResult, fromRemoteData
     , reason
@@ -10,7 +10,7 @@ module Cqrs.Command exposing
 
 {-|
 
-@docs StandardRequestConfiguration, TaskRequestConfiguration, RequestSettings, RequestWithConfigurationSettings, RequestTaskSettings, RequestTaskWithConfigurationSettings, CommandResponse
+@docs StandardRequestConfiguration, TaskRequestConfiguration, RequestSettings, RequestWithConfigurationSettings, RequestTaskSettings, RequestTaskWithConfigurationSettings, CommandRequest, CommandResponse
 
 
 ## HTTP
@@ -47,7 +47,7 @@ module Cqrs.Command exposing
 import Http exposing (Header)
 import Json.Decode exposing (Decoder)
 import Json.Encode
-import RemoteData exposing (RemoteData)
+import RemoteData exposing (WebData)
 import RemoteData.Http
 import Result.Extra
 import Task exposing (Task)
@@ -74,11 +74,10 @@ type alias TaskRequestConfiguration =
 
 {-| Configuration settings for a `Cqrs.Command.request`
 -}
-type alias RequestSettings issue error msg =
+type alias RequestSettings error msg =
     { body : Json.Encode.Value
     , defaultError : error
-    , errorMapper : issue -> error
-    , toError : Decoder issue
+    , toError : Decoder error
     , toMsg : CommandResponse error -> msg
     , url : String
     }
@@ -86,12 +85,11 @@ type alias RequestSettings issue error msg =
 
 {-| Configuration settings for a `Cqrs.Command.requestWithConfig`
 -}
-type alias RequestWithConfigurationSettings issue error msg =
+type alias RequestWithConfigurationSettings error msg =
     { body : Json.Encode.Value
     , config : StandardRequestConfiguration
     , defaultError : error
-    , errorMapper : issue -> error
-    , toError : Decoder issue
+    , toError : Decoder error
     , toMsg : CommandResponse error -> msg
     , url : String
     }
@@ -99,25 +97,32 @@ type alias RequestWithConfigurationSettings issue error msg =
 
 {-| Configuration settings for a `Cqrs.Command.requestTask`
 -}
-type alias RequestTaskSettings issue error =
+type alias RequestTaskSettings error =
     { body : Json.Encode.Value
     , defaultError : error
-    , errorMapper : issue -> error
-    , toError : Decoder issue
+    , toError : Decoder error
     , url : String
     }
 
 
 {-| Configuration settings for a `Cqrs.Command.requestTaskWithConfig`
 -}
-type alias RequestTaskWithConfigurationSettings issue error =
+type alias RequestTaskWithConfigurationSettings error =
     { body : Json.Encode.Value
     , config : TaskRequestConfiguration
     , defaultError : error
-    , errorMapper : issue -> error
-    , toError : Decoder issue
+    , toError : Decoder error
     , url : String
     }
+
+
+{-| Represents the possible types of query which can be executed depending on your needs.
+-}
+type CommandRequest error msg
+    = Request (RequestSettings error msg)
+    | RequestWithConfig (RequestWithConfigurationSettings error msg)
+    | Task (RequestTaskSettings error)
+    | TaskWithConfig (RequestTaskWithConfigurationSettings error)
 
 
 {-| Represents the possible states of a command.
@@ -204,40 +209,40 @@ decoder errorFn =
 
 {-| Sends a command to the given URL with the provided body and returns a parsed `Cqrs.Command.CommandResponse error` in turn.
 -}
-request : RequestSettings issue error msg -> Cmd msg
-request { body, defaultError, errorMapper, toError, toMsg, url } =
-    RemoteData.Http.post url (fromRemoteData errorMapper defaultError >> toMsg) (decoder toError) body
+request : RequestSettings error msg -> Cmd msg
+request { body, defaultError, toError, toMsg, url } =
+    RemoteData.Http.post url (fromRemoteData defaultError >> toMsg) (decoder toError) body
 
 
 {-| Similar to `request` but a `StandardRequestConfig` can be passed in for cases where customisation of the request headers, etc are desired.
 -}
-requestWithConfiguration : RequestWithConfigurationSettings issue error msg -> Cmd msg
-requestWithConfiguration { body, config, defaultError, errorMapper, toError, toMsg, url } =
-    RemoteData.Http.postWithConfig config url (fromRemoteData errorMapper defaultError >> toMsg) (decoder toError) body
+requestWithConfiguration : RequestWithConfigurationSettings error msg -> Cmd msg
+requestWithConfiguration { body, config, defaultError, toError, toMsg, url } =
+    RemoteData.Http.postWithConfig config url (fromRemoteData defaultError >> toMsg) (decoder toError) body
 
 
 {-| Sends a command to the given URL and returns a `Task` containing the parsed `Cqrs.Command.CommandResponse error`.
 The value contained within the `Cqrs.Command.CommandResponse error`, will be the value parsed via the provided decoder.
 -}
-requestTask : RequestTaskSettings issue error -> Task () (CommandResponse error)
-requestTask { body, defaultError, errorMapper, toError, url } =
+requestTask : RequestTaskSettings error -> Task () (CommandResponse error)
+requestTask { body, defaultError, toError, url } =
     RemoteData.Http.postTask url (decoder toError) body
-        |> Task.map (fromRemoteData errorMapper defaultError)
+        |> Task.map (fromRemoteData defaultError)
 
 
 {-| Similar to `requestTask` but a `TaskRequestConfig` can be passed in for cases where customisation of the request headers, etc are desired.
 -}
-requestTaskWithConfiguration : RequestTaskWithConfigurationSettings issue error -> Task () (CommandResponse error)
-requestTaskWithConfiguration { body, config, defaultError, errorMapper, toError, url } =
+requestTaskWithConfiguration : RequestTaskWithConfigurationSettings error -> Task () (CommandResponse error)
+requestTaskWithConfiguration { body, config, defaultError, toError, url } =
     RemoteData.Http.postTaskWithConfig config url (decoder toError) body
-        |> Task.map (fromRemoteData errorMapper defaultError)
+        |> Task.map (fromRemoteData defaultError)
 
 
-{-| Converts a given `RemoteData x (CommandResponse issue)` into a `Cqrs.Command.CommandResponse error`.
+{-| Converts a given `WebData (CommandResponse error)` into a `Cqrs.Command.CommandResponse error`.
 -}
-fromRemoteData : (issue -> error) -> error -> RemoteData x (CommandResponse issue) -> CommandResponse error
-fromRemoteData errorMapper defaultError response =
-    RemoteData.unwrap (fail defaultError) (mapError errorMapper) response
+fromRemoteData : error -> WebData (CommandResponse error) -> CommandResponse error
+fromRemoteData defaultError response =
+    RemoteData.unwrap (fail defaultError) identity response
 
 
 {-| Maps the `Failed` variant of a given `Cqrs.Command.CommandResponse error`.
