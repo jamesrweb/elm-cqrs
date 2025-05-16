@@ -42,7 +42,7 @@ import User exposing (User) -- An example module
 import Api.Error as Error exposing (Error) -- An example module
 
 type alias UserCommandResponse =
-    CommandResponse Error ()
+    CommandResponse Error
 
 type Msg =
     UserCommandExecuted UserCommandResponse
@@ -54,7 +54,13 @@ addUserCommand user =
         body =
             User.encode user
     in
-    Command.request "/api/v1/user" Error.Http Error.Unknown body Error.decoder UserCommandExecuted
+    Command.request {
+        url = "/api/v1/user"
+        , body =  body
+        , toMsg  = UserCommandExecuted
+        , toError = Error.decoder
+        , defaultError = Error.Unknown
+    }
 
 addUserCommandTask : User -> Task () UserCommandResponse
 addUserCommandTask user =
@@ -63,7 +69,12 @@ addUserCommandTask user =
         body =
             User.encode user
     in
-    Command.requestTask "/api/v1/user" Error.Http Error.Unknown body Error.decoder
+    Command.requestTask {
+        url = "/api/v1/user"
+        , body =  body
+        , toError = Error.decoder
+        , defaultError = Error.Unknown
+    }
 ```
 
 ### Queries
@@ -90,7 +101,13 @@ findUserQuery id =
         path : String
         path = "/api/v1/user/" ++ Uuid.toString id
     in
-    Query.request path Error.Http Error.Unknown UserQueryExecuted User.decoder Error.decoder
+    Query.request {
+        url = path
+        , toMsg = UserQueryExecuted
+        , toData = User.decoder
+        , toError = Error.decoder
+        , defaultError = Error.Unknown
+    }
 
 findUserQueryTask : Uuid -> Task () UserQueryResponse
 findUserQueryTask id =
@@ -98,40 +115,10 @@ findUserQueryTask id =
         path : String
         path = "/api/v1/user/" ++ Uuid.toString id
     in
-    Query.requestTask path Error.Http Error.Unknown User.decoder Error.decoder
-```
-
-### Error handlers and defaults
-
-In both cases, `Cqrs.Request.command` and `Cqrs.Request.query`, you can pass an optional http error handler in case you need custom errors or logging to be done, for example.
-
-To create a custom http error handler, you need to implement a function which takes an error of type `e` and returns a mapped value of type `f` which is probably some domain value but could be anything, for example being given an `Http.Error` and returns an `ApiError` domain error. For example:
-
-```elm
-module Api.Error exposing (Error, errorMapper, defaultError)
-
-import Http -- elm install elm/http
-
-type Error =
-    Unknown
-    | Http Http.Error
-
-httpErrorMapper : Http.Error -> Error
-httpErrorMapper error =
-    Http error
-
-defaultError : Error
-defaultError =
-    Unknown
-```
-
-And then to use it in your requests, you pass it in the second parameter to either `Cqrs.Request.command` or `Cqrs.Request.query`, like so:
-
-```elm
-import Cqrs.Query as Query
-import Cqrs.Command as Command
-import Api.Error exposing (httpErrorMapper, defaultError)
-
-Query.request url httpErrorMapper defaultError ...
-Command.request url httpErrorMapper defaultError ...
+    Query.requestTask {
+        url = path
+        , toData = User.decoder
+        , toError = Error.decoder
+        , defaultError = Error.Unknown
+    }
 ```
