@@ -1,6 +1,6 @@
 {
   "name": "elm-cqrs",
-  "version": "4.0.1",
+  "version": "5.0.0",
   "description": "A CQRS library to support proper segregation of commands and queries on the type level.",
   "scripts": {
     "test": "elm-test",
