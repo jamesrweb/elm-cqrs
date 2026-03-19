@@ -1,9 +1,0 @@
-# Directories
-.coverage/
-elm-stuff/
-node_modules/
-
-# Files
-.DS_Store
-.gitignore
-pnpm-lock.yaml

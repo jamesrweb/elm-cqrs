@@ -1,4 +1,5 @@
-onlyBuiltDependencies:
-  - elm
-  - elm-coverage
-  - elm-format
+allowBuilds:
+  elm: true
+  elm-coverage: true
+  elm-format: true
+  elm-json: true
