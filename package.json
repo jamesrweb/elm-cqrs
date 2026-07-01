@@ -13,7 +13,7 @@
   "keywords": [],
   "author": "James Robb <47126579+jamesrweb@users.noreply.github.com>",
   "license": "BSD-3-Clause",
-  "packageManager": "pnpm@10.32.1",
+  "packageManager": "pnpm@11.9.0",
   "dependencies": {
     "elm": "0.19.1-6",
     "elm-coverage": "^0.4.1",
@@ -21,9 +21,9 @@
     "elm-format": "^0.8.8",
     "elm-json": "^0.2.13",
     "elm-review": "^2.13.5",
-    "elm-test": "0.19.1-revision15"
+    "elm-test": "0.19.1-revision17"
   },
   "devDependencies": {
-    "@biomejs/biome": "^2.4.8"
+    "@biomejs/biome": "^2.5.1"
   }
 }
