@@ -1,10 +1,15 @@
 # Directories
 .coverage/
+elm-home/
 elm-stuff/
 node_modules/
 
 # Files
 .DS_Store
+docs.json
+
+# elm-verify-examples
+tests/VerifyExamples
 
 # JetBrains
 # Covers JetBrains IDEs: IntelliJ, RubyMine, PhpStorm, AppCode, PyCharm, CLion, Android Studio, WebStorm and Rider

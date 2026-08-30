@@ -1,9 +1,8 @@
 name: CI
 
 on:
-  push:
-    branches: [master]
   pull_request:
+    branches: [master]
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -14,42 +13,21 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
-      - uses: pnpm/action-setup@v5
-      - uses: actions/setup-node@v6
-        with:
-          node-version: lts/*
-          cache: pnpm
-      - run: pnpm install
-      - run: pnpm run lint
+      - uses: ./.github/actions/lint
 
   test:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
-      - uses: pnpm/action-setup@v5
-      - uses: actions/setup-node@v6
-        with:
-          node-version: lts/*
-          cache: pnpm
-      - run: pnpm install
-      - run: pnpm test
+      - uses: ./.github/actions/test
 
-  bump:
-    runs-on: ubuntu-latest
-    if: github.event_name == 'pull_request'
+  publish-dry-run:
     needs: [lint, test]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
       - uses: actions/checkout@v6
+      - uses: ./.github/actions/publish
         with:
-          ref: ${{ github.head_ref }}
-      - uses: pnpm/action-setup@v5
-      - uses: actions/setup-node@v6
-        with:
-          node-version: lts/*
-          cache: pnpm
-      - run: pnpm install
-      - run: yes | pnpm exec elm bump || true
-      - uses: stefanzweifel/git-auto-commit-action@v7
-        with:
-          commit_message: "chore: elm bump"
-          file_pattern: elm.json
+          dry-run: true

@@ -1,0 +1,1 @@
+{ "tests": ["Cqrs", "Cqrs.Command", "Cqrs.Query"] }

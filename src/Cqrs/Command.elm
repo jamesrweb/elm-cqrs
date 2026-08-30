@@ -132,81 +132,6 @@ type CommandResponse error
     | Failed error
 
 
-{-| Constructs the `Succeeded` variant of a `Cqrs.Command.CommandResponse error`.
-
-This is useful for testing how your UI will respond to the happy path, without actually sending a command.
-
--}
-succeed : CommandResponse error
-succeed =
-    Succeeded
-
-
-{-| Constructs the `Failed` variant of a `Cqrs.Command.CommandResponse error`.
-
-This is useful for testing how your UI will respond to the sad path, without actually sending a command.
-
--}
-fail : error -> CommandResponse error
-fail =
-    Failed
-
-
-{-| Checks if a given `Cqrs.Command.CommandResponse error` is a `Succeeded` variant.
-
-    succeeded Succeeded --> True
-
-    succeeded (Failed "reason") --> False
-
--}
-succeeded : CommandResponse error -> Bool
-succeeded =
-    toResult >> Result.Extra.isOk
-
-
-{-| Checks if a given `Cqrs.Command.CommandResponse error` is a `Failed` variant.
-
-    failed Succeeded --> False
-
-    failed (Failed "reason") --> True
-
--}
-failed : CommandResponse error -> Bool
-failed =
-    toResult >> Result.Extra.isErr
-
-
-{-| If a given `Cqrs.Command.CommandResponse error` was unsuccessful, the reason for the failure will be returned.
-
-    reason Succeeded --> Nothing
-
-    reason (Failed "reason") --> Just "reason"
-
--}
-reason : CommandResponse error -> Maybe error
-reason =
-    toResult >> Result.Extra.error
-
-
-{-| Decodes a given payload into a `Cqrs.Command.CommandResponse error`.
--}
-decoder : Decoder error -> Decoder (CommandResponse error)
-decoder errorFn =
-    let
-        error : Decoder (CommandResponse error)
-        error =
-            Json.Decode.map Failed <| Json.Decode.at [ "error" ] errorFn
-
-        success : Decoder (CommandResponse error)
-        success =
-            Json.Decode.succeed Succeeded
-    in
-    Json.Decode.oneOf
-        [ error
-        , success
-        ]
-
-
 {-| Sends a command to the given URL with the provided body and returns a parsed `Cqrs.Command.CommandResponse error` in turn.
 -}
 request : RequestSettings error msg -> Cmd msg
@@ -238,6 +163,33 @@ requestTaskWithConfiguration { body, config, defaultError, toError, url } =
         |> Task.map (fromRemoteData defaultError)
 
 
+{-| Constructs the `Succeeded` variant of a `Cqrs.Command.CommandResponse error`.
+
+This is useful for testing how your UI will respond to the happy path, without actually sending a command.
+
+-}
+succeed : CommandResponse error
+succeed =
+    Succeeded
+
+
+{-| Constructs the `Failed` variant of a `Cqrs.Command.CommandResponse error`.
+
+This is useful for testing how your UI will respond to the sad path, without actually sending a command.
+
+-}
+fail : error -> CommandResponse error
+fail =
+    Failed
+
+
+{-| Converts a `Result error data` to a `Cqrs.Command.CommandResponse error`
+-}
+fromResult : Result error data -> CommandResponse error
+fromResult result =
+    Result.Extra.unpack fail (always succeed) result
+
+
 {-| Converts a given `WebData (CommandResponse error)` into a `Cqrs.Command.CommandResponse error`.
 -}
 fromRemoteData : error -> WebData (CommandResponse error) -> CommandResponse error
@@ -245,11 +197,44 @@ fromRemoteData defaultError response =
     RemoteData.unwrap (fail defaultError) identity response
 
 
+{-| If a given `Cqrs.Command.CommandResponse error` was unsuccessful, the reason for the failure will be returned.
+
+    reason succeed --> Nothing
+
+    reason (fail "reason") --> Just "reason"
+
+-}
+reason : CommandResponse error -> Maybe error
+reason =
+    toResult >> Result.Extra.error
+
+
 {-| Maps the `Failed` variant of a given `Cqrs.Command.CommandResponse error`.
 -}
 mapError : (error -> nextError) -> CommandResponse error -> CommandResponse nextError
 mapError fn =
     toResult >> Result.mapError fn >> fromResult
+
+
+{-| Convert a `CommandResponse error` to a `value` by applying a function if the `CommandResponse error` is a `Succeeded` variant or using the provided default value if it is an `Failed` variant.
+-}
+unwrap : value -> (() -> value) -> CommandResponse error -> value
+unwrap default dataFn =
+    toResult >> Result.Extra.unwrap default dataFn
+
+
+{-| Convert a `CommandResponse error` to a `value` by applying either the first function if the `CommandResponse error` is an `Failed` variant or the second function if the `CommandResponse error` is a `Succeeded` variant.
+-}
+unpack : (error -> value) -> (() -> value) -> CommandResponse error -> value
+unpack errorFn dataFn =
+    toResult >> Result.Extra.unpack errorFn dataFn
+
+
+{-| Partitions a series of `CommandResponse error` instances into a tuple of successful and unsuccessful responses.
+-}
+partition : List (CommandResponse error) -> ( List (), List error )
+partition =
+    List.map toResult >> Result.Extra.partition
 
 
 {-| Converts a `Cqrs.Command.CommandResponse error` to a `Result error data`
@@ -264,13 +249,6 @@ toResult response =
             Result.Err error
 
 
-{-| Converts a `Result error data` to a `Cqrs.Command.CommandResponse error`
--}
-fromResult : Result error data -> CommandResponse error
-fromResult result =
-    Result.Extra.unpack fail (always succeed) result
-
-
 {-| Converts a `Cqrs.Command.CommandResponse error` to a `Maybe ()`
 -}
 toMaybe : CommandResponse error -> Maybe ()
@@ -278,22 +256,44 @@ toMaybe =
     toResult >> Result.toMaybe
 
 
-{-| Partitions a series of `CommandResponse error` instances into a tuple of successful and unsuccessful responses.
+{-| Checks if a given `Cqrs.Command.CommandResponse error` is a `Succeeded` variant.
+
+    succeeded succeed --> True
+
+    succeeded (fail "reason") --> False
+
 -}
-partition : List (CommandResponse error) -> ( List (), List error )
-partition =
-    List.map toResult >> Result.Extra.partition
+succeeded : CommandResponse error -> Bool
+succeeded =
+    toResult >> Result.Extra.isOk
 
 
-{-| Convert a `CommandResponse error` to a `value` by applying either the first function if the `CommandResponse error` is an `Failed` variant or the second function if the `CommandResponse error` is a `Succeeded` variant.
+{-| Checks if a given `Cqrs.Command.CommandResponse error` is a `Failed` variant.
+
+    failed succeed --> False
+
+    failed (fail "reason") --> True
+
 -}
-unpack : (error -> value) -> (() -> value) -> CommandResponse error -> value
-unpack errorFn dataFn =
-    toResult >> Result.Extra.unpack errorFn dataFn
+failed : CommandResponse error -> Bool
+failed =
+    toResult >> Result.Extra.isErr
 
 
-{-| Convert a `CommandResponse error` to a `value` by applying a function if the `CommandResponse error` is a `Succeeded` variant or using the provided default value if it is an `Failed` variant.
+{-| Decodes a given payload into a `Cqrs.Command.CommandResponse error`.
 -}
-unwrap : value -> (() -> value) -> CommandResponse error -> value
-unwrap default dataFn =
-    toResult >> Result.Extra.unwrap default dataFn
+decoder : Decoder error -> Decoder (CommandResponse error)
+decoder errorFn =
+    let
+        error : Decoder (CommandResponse error)
+        error =
+            Json.Decode.map Failed <| Json.Decode.at [ "error" ] errorFn
+
+        success : Decoder (CommandResponse error)
+        success =
+            Json.Decode.succeed Succeeded
+    in
+    Json.Decode.oneOf
+        [ error
+        , success
+        ]

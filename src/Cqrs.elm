@@ -19,13 +19,6 @@ import Cqrs.Query
 import Task exposing (Task)
 
 
-{-| Represents a CQRS operation.
--}
-type Operation data error msg
-    = Query (Cqrs.Query.QueryRequest data error msg)
-    | Command (Cqrs.Command.CommandRequest error msg)
-
-
 {-| Represents the responses for the batched operations.
 -}
 type Response error data msg
@@ -33,6 +26,13 @@ type Response error data msg
     | QueryTask (Task () (Cqrs.Query.QueryResponse error data))
     | CommandCmd (Cmd msg)
     | CommandTask (Task () (Cqrs.Command.CommandResponse error))
+
+
+{-| Represents a CQRS operation.
+-}
+type Operation data error msg
+    = Query (Cqrs.Query.QueryRequest data error msg)
+    | Command (Cqrs.Command.CommandRequest error msg)
 
 
 {-| Batches a list of queries and commands to be executed in unison.
@@ -58,28 +58,6 @@ execute operation =
             executeCommand commandRequest
 
 
-{-| Specifically handles the execution of queries.
--}
-executeQuery : Cqrs.Query.QueryRequest data error msg -> Response error data msg
-executeQuery request =
-    case request of
-        Cqrs.Query.Request requestSettings ->
-            Cqrs.Query.request requestSettings
-                |> QueryCmd
-
-        Cqrs.Query.RequestWithConfig requestWithConfigurationSettings ->
-            Cqrs.Query.requestWithConfiguration requestWithConfigurationSettings
-                |> QueryCmd
-
-        Cqrs.Query.Task requestTaskSettings ->
-            Cqrs.Query.requestTask requestTaskSettings
-                |> QueryTask
-
-        Cqrs.Query.TaskWithConfig requestTaskWithConfigurationSettings ->
-            Cqrs.Query.requestTaskWithConfiguration requestTaskWithConfigurationSettings
-                |> QueryTask
-
-
 {-| Specifically handles the execution of commands.
 -}
 executeCommand : Cqrs.Command.CommandRequest error msg -> Response error data msg
@@ -100,3 +78,25 @@ executeCommand request =
         Cqrs.Command.TaskWithConfig requestTaskWithConfigurationSettings ->
             Cqrs.Command.requestTaskWithConfiguration requestTaskWithConfigurationSettings
                 |> CommandTask
+
+
+{-| Specifically handles the execution of queries.
+-}
+executeQuery : Cqrs.Query.QueryRequest data error msg -> Response error data msg
+executeQuery request =
+    case request of
+        Cqrs.Query.Request requestSettings ->
+            Cqrs.Query.request requestSettings
+                |> QueryCmd
+
+        Cqrs.Query.RequestWithConfig requestWithConfigurationSettings ->
+            Cqrs.Query.requestWithConfiguration requestWithConfigurationSettings
+                |> QueryCmd
+
+        Cqrs.Query.Task requestTaskSettings ->
+            Cqrs.Query.requestTask requestTaskSettings
+                |> QueryTask
+
+        Cqrs.Query.TaskWithConfig requestTaskWithConfigurationSettings ->
+            Cqrs.Query.requestTaskWithConfiguration requestTaskWithConfigurationSettings
+                |> QueryTask

@@ -1,4 +1,4 @@
-module Unit.Cqrs exposing (Msg(..), suite)
+module Unit.Cqrs exposing (suite)
 
 import Cqrs exposing (Operation(..))
 import Cqrs.Command
@@ -7,11 +7,6 @@ import Expect
 import Json.Decode
 import Json.Encode
 import Test exposing (Test)
-
-
-type Msg
-    = QueryResponse (Cqrs.Query.QueryResponse String Int)
-    | CommandResponse (Cqrs.Command.CommandResponse String)
 
 
 suite : Test
@@ -141,7 +136,55 @@ suite =
                             )
                         |> Expect.equalLists [ True, True, True, True ]
             ]
+        , Test.describe "Msg constructors"
+            [ Test.test "QueryResponse constructor" <|
+                \_ ->
+                    let
+                        msg : Msg
+                        msg =
+                            QueryResponse (Cqrs.Query.succeed 42)
+                    in
+                    case msg of
+                        QueryResponse response ->
+                            Expect.equal response (Cqrs.Query.succeed 42)
+
+                        CommandResponse _ ->
+                            Expect.fail "Unexpected CommandResponse"
+            , Test.test "CommandResponse constructor" <|
+                \_ ->
+                    let
+                        msg : Msg
+                        msg =
+                            CommandResponse (Cqrs.Command.fail "error")
+                    in
+                    case msg of
+                        QueryResponse _ ->
+                            Expect.fail "Unexpected QueryResponse"
+
+                        CommandResponse response ->
+                            Expect.equal response (Cqrs.Command.fail "error")
+            ]
         ]
+
+
+isCommandCmd : Cqrs.Response error data msg -> Bool
+isCommandCmd response =
+    case response of
+        Cqrs.CommandCmd _ ->
+            True
+
+        _ ->
+            False
+
+
+isCommandTask : Cqrs.Response error data msg -> Bool
+isCommandTask response =
+    case response of
+        Cqrs.CommandTask _ ->
+            True
+
+        _ ->
+            False
 
 
 isQueryCmd : Cqrs.Response error data msg -> Bool
@@ -164,21 +207,6 @@ isQueryTask response =
             False
 
 
-isCommandCmd : Cqrs.Response error data msg -> Bool
-isCommandCmd response =
-    case response of
-        Cqrs.CommandCmd _ ->
-            True
-
-        _ ->
-            False
-
-
-isCommandTask : Cqrs.Response error data msg -> Bool
-isCommandTask response =
-    case response of
-        Cqrs.CommandTask _ ->
-            True
-
-        _ ->
-            False
+type Msg
+    = QueryResponse (Cqrs.Query.QueryResponse String Int)
+    | CommandResponse (Cqrs.Command.CommandResponse String)
