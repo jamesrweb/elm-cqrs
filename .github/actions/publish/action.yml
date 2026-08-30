@@ -1,89 +1,53 @@
 name: Publish
 
-description: Bump version, sync package.json, and publish
+description: Publish to Elm registry and create GitHub release
 
 inputs:
   dry-run:
-    description: 'Run in dry-run mode'
-    required: true
+    description: Run in dry-run mode
+    required: false
     type: boolean
+    default: false
+  github-token:
+    description: GitHub token for publishing
+    required: true
+    type: string
+  path-to-elm:
+    description: Path to elm binary
+    required: false
+    type: string
+    default: ./node_modules/.bin/elm
 
 runs:
   using: composite
   steps:
     - uses: pnpm/action-setup@v5
+
     - uses: actions/setup-node@v6
       with:
         node-version: lts/*
         cache: pnpm
+
     - run: pnpm install
       shell: bash
 
-    # Check if version needs bumping by running elm bump
-    - name: Try version bump
-      id: version-bump
-      run: |
-        yes | pnpm exec elm bump || true
-        # Check if version actually changed
-        if git diff --quiet elm.json; then
-          echo "bumped=false" >> $GITHUB_OUTPUT
-        else
-          echo "bumped=true" >> $GITHUB_OUTPUT
-        fi
-      shell: bash
-
-    # Run formatter if version was bumped
-    - name: Run formatter
-      if: steps.version-bump.outputs.bumped == 'true'
-      run: pnpm format
-      shell: bash
-
-    # Commit all changes if version was bumped
-    - name: Commit version bump
-      if: steps.version-bump.outputs.bumped == 'true'
-      uses: stefanzweifel/git-auto-commit-action@v7
-      with:
-        commit_message: "chore: elm bump"
-
-    # Sync package.json version with elm.json
-    - name: Sync package.json version
-      run: |
-        ELM_VERSION=$(jq -r '.version' elm.json)
-        CURRENT_VERSION=$(jq -r '.version' package.json)
-        if [ "$ELM_VERSION" != "$CURRENT_VERSION" ]; then
-          pnpm version "$ELM_VERSION" --no-git-tag-version
-        fi
-      shell: bash
-
-    # Re-run pnpm install to update lock file
-    - run: pnpm install
-      shell: bash
-
-    # Run formatter again
-    - run: pnpm format
-      shell: bash
-
-    # Commit all changes (package.json and lock file)
-    - name: Commit package version sync
-      if: steps.version-bump.outputs.bumped == 'true'
-      uses: stefanzweifel/git-auto-commit-action@v7
-      with:
-        commit_message: "chore: sync package version"
-
-    # Publish to Elm registry
-    - name: Publish to Elm registry
-      id: elm-publish
+    - name: Check if publishable
+      id: publish-check
       uses: dillonkearns/elm-publish-action@v2
       with:
-        github-token: ${{ github.token }}
-        path-to-elm: ./node_modules/.bin/elm
-        dry-run: ${{ inputs.dry-run }}
+        dry-run: true
 
-    # Create GitHub release only if not dry-run and publish succeeded
+    - name: Publish to Elm registry
+      if: inputs.dry-run == false && steps.publish-check.outputs.is-publishable == 'true'
+      uses: dillonkearns/elm-publish-action@v2
+      with:
+        github-token: ${{ inputs.github-token }}
+        path-to-elm: ${{ inputs.path-to-elm }}
+
     - name: Create GitHub Release
-      if: inputs.dry-run == false && success()
+      if: inputs.dry-run == false && steps.publish-check.outputs.is-publishable == 'true'
       env:
-        GH_TOKEN: ${{ github.token }}
+        GH_TOKEN: ${{ inputs.github-token }}
       run: |
         VERSION=$(jq -r '.version' elm.json)
         gh release create "$VERSION" --generate-notes
