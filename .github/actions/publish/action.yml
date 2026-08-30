@@ -36,6 +36,7 @@ runs:
       uses: dillonkearns/elm-publish-action@v2
       with:
         dry-run: true
+        path-to-elm: ${{ inputs.path-to-elm }}
 
     - name: Publish to Elm registry
       if: inputs.dry-run == false && steps.publish-check.outputs.is-publishable == 'true'
