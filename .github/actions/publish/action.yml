@@ -39,14 +39,14 @@ runs:
         path-to-elm: ${{ inputs.path-to-elm }}
 
     - name: Publish to Elm registry
-      if: inputs.dry-run == false && steps.publish-check.outputs.is-publishable == 'true'
+      if: ${{ inputs.dry-run == 'false' && steps.publish-check.outputs.is-publishable == 'true' }}
       uses: dillonkearns/elm-publish-action@v2
       with:
         github-token: ${{ inputs.github-token }}
         path-to-elm: ${{ inputs.path-to-elm }}
 
     - name: Create GitHub Release
-      if: inputs.dry-run == false && steps.publish-check.outputs.is-publishable == 'true'
+      if: ${{ inputs.dry-run == 'false' && steps.publish-check.outputs.is-publishable == 'true' }}
       env:
         GH_TOKEN: ${{ inputs.github-token }}
       run: |
