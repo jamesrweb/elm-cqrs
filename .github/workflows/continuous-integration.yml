@@ -1,19 +1,13 @@
-name: CD
+name: CI
 
 on:
-  push:
+  pull_request:
     branches: [main]
-    paths:
-      - 'src/**'
-      - 'elm.json'
-      - 'package.json'
-      - 'pnpm-lock.yaml'
-      - 'pnpm-workspace.yaml'
   workflow_dispatch:
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: false
+  cancel-in-progress: true
 
 jobs:
   lint:
@@ -31,11 +25,11 @@ jobs:
   publish:
     needs: [lint, test]
     runs-on: ubuntu-latest
-    permissions:
-      contents: write
     steps:
       - uses: actions/checkout@v6
 
-      - uses: ./.github/actions/publish
+      - name: Dry-run publish check
+        uses: ./.github/actions/publish
         with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
+          dry-run: true
+          github-token: ''

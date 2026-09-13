@@ -1,8 +1,19 @@
-name: CI
+name: CD
 
 on:
-  pull_request:
+  push:
     branches: [main]
+    paths:
+      - 'src/**'
+      - 'elm.json'
+      - 'package.json'
+      - 'pnpm-lock.yaml'
+      - 'pnpm-workspace.yaml'
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
 
 jobs:
   lint:
@@ -43,35 +54,18 @@ jobs:
         if: steps.version-sync.outputs.synced == 'true'
         uses: stefanzweifel/git-auto-commit-action@v7
         with:
-          commit_message: chore: sync package.json version with elm.json
+          commit_message: "chore: sync package.json version with elm.json"
           file_pattern: package.json pnpm-lock.yaml
-          branch: ${{ github.head_ref }}
+          branch: main
 
-  check-publishable:
+  publish:
+    needs: [lint, test, sync-version]
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
       - uses: actions/checkout@v6
 
-      - uses: pnpm/action-setup@v5
-
-      - uses: actions/setup-node@v6
+      - uses: ./.github/actions/publish
         with:
-          node-version: lts/*
-          cache: pnpm
-
-      - run: pnpm install
-        shell: bash
-
-      - name: Check if publishable
-        id: publish
-        uses: ./.github/actions/publish
-        with:
-          dry-run: true
-          github-token: ''
-
-      - name: Fail if not publishable
-        if: steps.publish.outputs.is-publishable != 'true'
-        run: |
-          echo "::error::Version in elm.json is already published or invalid. Run 'elm bump' to update it."
-          exit 1
-        shell: bash
+          github-token: ${{ secrets.GITHUB_TOKEN }}
