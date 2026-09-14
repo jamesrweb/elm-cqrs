@@ -19,12 +19,15 @@
   ],
   "author": "James Robb <47126579+jamesrweb@users.noreply.github.com>",
   "license": "BSD-3-Clause",
-  "packageManager": "pnpm@11.24.0",
+  "packageManager": "pnpm@12.4.1",
+  "engines": {
+    "node": ">=24.21.0"
+  },
   "dependencies": {
     "elm": "0.19.2-0"
   },
   "devDependencies": {
-    "@biomejs/biome": "^2.5.11",
+    "@biomejs/biome": "^2.5.13",
     "elm-coverage": "^0.4.1",
     "elm-doc-preview": "^6.0.1",
     "elm-format": "^0.8.8",
