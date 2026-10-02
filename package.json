@@ -31,7 +31,7 @@
     "elm": "0.19.2-0"
   },
   "devDependencies": {
-    "@biomejs/biome": "^2.5.13",
+    "@biomejs/biome": "^2.5.14",
     "elm-coverage": "^0.4.1",
     "elm-doc-preview": "^6.0.1",
     "elm-format": "^0.8.8",
