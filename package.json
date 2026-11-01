@@ -23,22 +23,22 @@
     "email": "47126579+jamesrweb@users.noreply.github.com"
   },
   "license": "BSD-3-Clause",
-  "packageManager": "pnpm@12.4.1",
+  "packageManager": "pnpm@12.16.1",
   "engines": {
     "node": ">=24.21.0"
   },
   "dependencies": {
-    "elm": "0.19.2-0"
+    "elm": "0.19.3-0"
   },
   "devDependencies": {
-    "@biomejs/biome": "^2.5.14",
+    "@biomejs/biome": "^2.6.4",
     "elm-coverage": "^0.4.1",
     "elm-doc-preview": "^6.0.1",
     "elm-format": "^0.8.8",
     "elm-janitor-apply-patches": "^1.1.0",
     "elm-json": "^0.2.13",
     "elm-review": "^2.13.5",
-    "elm-test": "0.19.2-1",
+    "elm-test": "0.19.3-0",
     "elm-verify-examples": "^6.0.3"
   }
 }
