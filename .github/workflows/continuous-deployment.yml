@@ -4,11 +4,11 @@ on:
   push:
     branches: [main]
     paths:
-      - 'src/**'
-      - 'elm.json'
-      - 'package.json'
-      - 'pnpm-lock.yaml'
-      - 'pnpm-workspace.yaml'
+      - "src/**"
+      - "elm.json"
+      - "package.json"
+      - "pnpm-lock.yaml"
+      - "pnpm-workspace.yaml"
   workflow_dispatch:
 
 concurrency:
