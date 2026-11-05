@@ -60,9 +60,9 @@ not `behavior`, `licence` not `license`, `centre` not `center`).
 
 ### Package Management
 
-- **Package manager:** pnpm (`pnpm@12.4.1` via the `packageManager` field —
+- **Package manager:** pnpm (`pnpm@12.17.0` via the `packageManager` field —
   Corepack manages the exact version, never install pnpm globally)
-- **Node.js engine:** `>=24.21.0` (declared in `package.json` `engines`)
+- **Node.js engine:** `>=26.0.0` (declared in `package.json` `engines`)
 - **Lock file:** `pnpm-lock.yaml` is committed. NEVER delete or regenerate it
   casually — run `pnpm install` after dependency changes and commit the result
 - **Install:** `pnpm install --frozen-lockfile` in CI and automation; plain

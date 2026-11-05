@@ -23,9 +23,9 @@
     "email": "47126579+jamesrweb@users.noreply.github.com"
   },
   "license": "BSD-3-Clause",
-  "packageManager": "pnpm@12.16.1",
+  "packageManager": "pnpm@12.17.0",
   "engines": {
-    "node": ">=24.21.0"
+    "node": ">=26.0.0"
   },
   "dependencies": {
     "elm": "0.19.3-0"
