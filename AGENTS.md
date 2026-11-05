@@ -242,12 +242,12 @@ types and utilities for command/query separation.
 
 ## CI/CD
 
-- **CI** (`continuous-integration.yml`): Runs on PRs to `main` and
-  `workflow_dispatch`. Jobs: `lint` and `test` via composite actions, plus a
-  `publish` job that dry-runs the Elm publish check. Concurrency cancels
-  in-progress runs
-- **CD** (`continuous-deployment.yml`): Runs on push to `main` (paths-filtered
-  to `src/`, `elm.json`, and package manifests) and `workflow_dispatch`. Jobs:
+- **CI** (`continuous-integration.yml`): Runs on pushes to `main`, all pull
+  requests, and `workflow_dispatch`. Jobs: `lint` and `test` via composite
+  actions, plus a `publish` job that dry-runs the Elm publish check. Concurrency
+  cancels in-progress runs
+- **CD** (`continuous-delivery.yml`): Runs on push to `main` (paths-filtered to
+  `src/`, `elm.json`, and package manifests) and `workflow_dispatch`. Jobs:
   `lint`, `test`, `sync-version` (commits `package.json` version-sync to
   `main`), `publish` (publishes to the Elm registry and creates the matching
   GitHub release when the version is unpublished). CD concurrency does NOT
