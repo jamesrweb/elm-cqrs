@@ -1,10 +1,12 @@
+engineStrict: true
+autoInstallPeers: true
+dedupePeerDependents: true
+strictPeerDependencies: true
+minimumReleaseAgeStrict: true
 minimumReleaseAge: 1440
 
-audit:
-  level: info
-  ignorePrune: true
-
 allowBuilds:
+  "@biomejs/biome": true
   elm: true
   elm-coverage: true
   elm-doc-preview: true

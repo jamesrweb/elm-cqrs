@@ -110,3 +110,6 @@ PR_DESCRIPTION.md
 # IDE (shared run configurations stay tracked)
 .idea/*
 !.idea/runConfigurations/
+
+# Biome: excluded review output
+review/suppressed/
