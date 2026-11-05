@@ -4,8 +4,8 @@
 
 1. **Plan first:** Create a detailed plan and get explicit user approval before
    making changes.
-2. **Quality gates:** Every change must pass `pnpm lint` and `pnpm test`
-   before being considered complete.
+2. **Quality gates:** Every change must pass `pnpm lint` and `pnpm test` before
+   being considered complete.
 3. **Documentation:** Update `README.md`, `AGENTS.md`, configuration files, and
    any other documentation affected by your changes. Clean as you go — take
    ownership of every file you touch.
@@ -48,13 +48,13 @@ not `behavior`, `licence` not `license`, `centre` not `center`).
 ### Elm Package Conventions
 
 - **Published package:** This is a published Elm package (`jamesrweb/elm-cqrs`).
-  `elm.json` declares `"type": "package"` with a semver range for
-  `elm-version` — never convert it to application style
+  `elm.json` declares `"type": "package"` with a semver range for `elm-version`
+  — never convert it to application style
 - **Version bumps:** `elm bump` before release; the CD workflow syncs
   `package.json` to match `elm.json` and publishes
-- **Custom review rules:** `review/src/ReviewConfig.elm` owns the
-  `elm-review` rule set. Changes here change linting for every consumer of
-  the repository — treat them as deliberate decisions
+- **Custom review rules:** `review/src/ReviewConfig.elm` owns the `elm-review`
+  rule set. Changes here change linting for every consumer of the repository —
+  treat them as deliberate decisions
 - **Doc examples:** `elm-verify-examples` validates examples in README
   documentation comments; examples must compile and pass
 
@@ -70,18 +70,19 @@ not `behavior`, `licence` not `license`, `centre` not `center`).
 - **Elm toolchain:** `elm@0.19.2-0` is a devDependency — never install Elm
   globally, always use the local binary via `pnpm exec`
 - **Patched Elm home:** `postinstall` runs `elm-janitor-apply-patches` into
-  `elm-home/` (patched Elm build). Do not delete `elm-home/` casually and
-  never commit it; the postinstall rebuilds it
+  `elm-home/` (patched Elm build). Do not delete `elm-home/` casually and never
+  commit it; the postinstall rebuilds it
 - **Workspace settings:** `pnpm-workspace.yaml` enforces
-  `minimumReleaseAge: 1440` and an `allowBuilds` allowlist for the Elm
-  toolchain packages. Do not widen without explicit permission
+  `minimumReleaseAge: 1440` and an `allowBuilds` allowlist for the Elm toolchain
+  packages. Do not widen without explicit permission
 
 ### Formatting and Linting
 
-- **elm-format** is the Elm formatter (`pnpm run format` applies it; `--validate`
-  in lint). Generated code is always in `elm-format` style — never hand-format
-- **elm-review** is the linter with a custom rule set in `review/`. The rule
-  set is project-specific and deliberately stricter than the defaults — do not
+- **elm-format** is the Elm formatter (`pnpm run format` applies it;
+  `--validate` in lint). Generated code is always in `elm-format` style — never
+  hand-format
+- **elm-review** is the linter with a custom rule set in `review/`. The rule set
+  is project-specific and deliberately stricter than the defaults — do not
   disable rules to make a change pass
 - **Biome** (`@biomejs/biome@^2.5.13`) formats and lints all JavaScript, JSON,
   and CSS (`biome.json`, schema 2.5.13). Biome is the sole tool for those
@@ -95,8 +96,8 @@ Every change must pass before being considered complete:
 
 - `pnpm lint` — elm-verify-examples, elm-format validation, elm-review, Biome
 - `pnpm test` — elm-verify-examples plus `elm-test` suite
-- `pnpm run coverage` and `pnpm run documentation` exist for exploration but
-  are not gates
+- `pnpm run coverage` and `pnpm run documentation` exist for exploration but are
+  not gates
 
 ### Git Safety
 
@@ -148,8 +149,8 @@ project changes. Do not begin implementation until the plan is approved.
 
 - **No comments:** Do not add comments to source files. The code should be
   self-documenting
-- **Functional style:** Pure functions, no side effects outside `main`; keep
-  the composition-oriented style the packages are built around
+- **Functional style:** Pure functions, no side effects outside `main`; keep the
+  composition-oriented style the packages are built around
 - **Type-driven design:** Exposed functions must have full type annotations;
   prefer explicit types over type variables where the domain is fixed
 
@@ -184,7 +185,8 @@ legally certify a contribution — the human submitter reviews the AI-generated
 code, takes full responsibility for it, and adds any certification trailers
 themselves. Following the rules the Linux kernel team enforce for AI coding
 assistants, an agent's role in a commit ends at the message body — no
-`Signed-off-by`, no `Co-authored-by`, no other trailers or sign-offs. See [AI
+`Signed-off-by`, no `Co-authored-by`, no other trailers or sign-offs. See
+[AI
 Coding Assistants — The Linux Kernel documentation]
 (https://docs.kernel.org/process/coding-assistants.html), integrated into this
 ruleset on 2026-09-14.
@@ -212,15 +214,20 @@ lines you intended to change.
 
 ## Project Overview
 
-A CQRS (Command Query Responsibility Segregation) package for Elm providing types and utilities for command/query separation.
+A CQRS (Command Query Responsibility Segregation) package for Elm providing
+types and utilities for command/query separation.
 
 ## Architecture
 
 - `src/` — the exposed package source (pure Elm, no JavaScript interop)
-- `tests/` — `elm-test` suites plus `elm-verify-examples` output (`tests/VerifyExamples` is generated, gitignored)
-- `review/` — the `elm-review` project: `review/src/ReviewConfig.elm` owns the custom rule set; `review/suppressed/` holds justified suppressions
-- `.github/actions/` — composite actions (`lint`, `test`, `publish`) shared by both workflows
-- `elm-home/`, `elm-stuff/` — generated (gitignored); produced by `postinstall` and builds
+- `tests/` — `elm-test` suites plus `elm-verify-examples` output
+  (`tests/VerifyExamples` is generated, gitignored)
+- `review/` — the `elm-review` project: `review/src/ReviewConfig.elm` owns the
+  custom rule set; `review/suppressed/` holds justified suppressions
+- `.github/actions/` — composite actions (`lint`, `test`, `publish`) shared by
+  both workflows
+- `elm-home/`, `elm-stuff/` — generated (gitignored); produced by `postinstall`
+  and builds
 
 ## Commands
 
@@ -262,7 +269,7 @@ A CQRS (Command Query Responsibility Segregation) package for Elm providing type
 
 ## Future Topics
 
-- **Exposed module coverage:** measure and lift coverage on the exposed
-  modules as the APIs mature
+- **Exposed module coverage:** measure and lift coverage on the exposed modules
+  as the APIs mature
 - **Review rule adoption:** the custom `elm-review` rule sets may converge on
   shared rules extracted into a dedicated review package
