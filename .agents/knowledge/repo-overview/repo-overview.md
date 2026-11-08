@@ -29,14 +29,14 @@ the Elm package registry as `jamesrweb/elm-cqrs`.
 
 ## Commands
 
-| Command              | Purpose                                                       |
-| -------------------- | ------------------------------------------------------------- |
-| `pnpm format`        | Apply `elm-format` and Biome fixes                            |
-| `pnpm lint`          | elm-verify-examples, elm-format validation, elm-review, Biome |
-| `pnpm test`          | elm-verify-examples plus the `elm-test` suite                 |
-| `pnpm coverage`      | Open the elm-coverage report (not a gate)                     |
-| `pnpm documentation` | Open elm-doc-preview (not a gate)                             |
-| `pnpm install`       | Install dependencies and run the `postinstall` Elm patch step |
+| Command              | Purpose                                                         |
+| -------------------- | --------------------------------------------------------------- |
+| `pnpm format`        | Apply `elm-format` and `Biome` fixes                            |
+| `pnpm lint`          | elm-verify-examples, elm-format validation, elm-review, `Biome` |
+| `pnpm test`          | elm-verify-examples plus the `elm-test` suite                   |
+| `pnpm coverage`      | Open the elm-coverage report (not a gate)                       |
+| `pnpm documentation` | Open elm-doc-preview (not a gate)                               |
+| `pnpm install`       | Install dependencies and run the `postinstall` Elm patch step   |
 
 ## CI/CD
 
@@ -50,8 +50,8 @@ the Elm package registry as `jamesrweb/elm-cqrs`.
   sync to `main`), and `publish` (publishes to the Elm registry and creates the
   matching GitHub release when the version is unpublished). CD concurrency does
   not cancel in-progress runs, so never interrupt an in-flight publish.
-- Dependabot runs monthly for the npm, Elm, and GitHub Actions ecosystems, each
-  limited to one grouped pull request, with semver-major updates ignored.
+- `Dependabot` runs monthly for the npm, Elm, and GitHub Actions ecosystems,
+  each limited to one grouped pull request, with semver-major updates ignored.
 
 ## Release model
 

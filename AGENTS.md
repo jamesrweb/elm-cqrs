@@ -29,7 +29,7 @@ utilities for command/query responsibility segregation (CQRS) in Elm.
 ├── CLAUDE.md              # symlink to AGENTS.md
 ├── LICENSE                # BSD 3-Clause licence
 ├── README.md              # human-facing documentation
-├── biome.json             # Biome configuration
+├── biome.json             # `Biome` configuration
 ├── elm.json               # Elm manifest
 ├── package.json           # pnpm manifest and scripts
 ├── pnpm-lock.yaml         # pnpm lockfile
@@ -40,14 +40,13 @@ utilities for command/query responsibility segregation (CQRS) in Elm.
 
 ## Commands
 
-| Command              | Purpose                                             |
-| -------------------- | --------------------------------------------------- |
-| `pnpm format`        | Applies formatting fixes                            |
-| `pnpm lint`          | Runs the lint checks                                |
-| `pnpm test`          | Runs the test suite                                 |
-| `pnpm coverage`      | Opens the coverage report (not a gate)              |
-| `pnpm documentation` | Opens the documentation preview (not a gate)        |
-| `pnpm install`       | Installs dependencies and runs the postinstall step |
+| Command              | Purpose                                      |
+| -------------------- | -------------------------------------------- |
+| `pnpm format`        | Applies formatting fixes                     |
+| `pnpm lint`          | Runs the lint checks                         |
+| `pnpm test`          | Runs the test suite                          |
+| `pnpm coverage`      | Opens the coverage report (not a gate)       |
+| `pnpm documentation` | Opens the documentation preview (not a gate) |
 
 Every change must pass `pnpm lint` and `pnpm test` before it is complete.
 
@@ -59,8 +58,8 @@ them.
 
 ## Tooling
 
-Formatting is done via `elm-format` and Biome. Linting is done via `elm-review`
-and Biome.
+Formatting is done via `elm-format` and `Biome`. Linting is done via
+`elm-review` and `Biome`.
 
 ## Conventions
 
@@ -72,7 +71,7 @@ test gate, so they must compile.
 ## CI/CD and releases
 
 CI runs on pushes to `main`, on all pull requests, and on manual dispatch. CD
-publishes the package on pushes to `main`. Dependabot runs monthly.
+publishes the package on pushes to `main`. `Dependabot` runs monthly.
 
 ## Guardrails
 
