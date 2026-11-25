@@ -36,7 +36,6 @@ the Elm package registry as `jamesrweb/elm-cqrs`.
 | `pnpm test`          | elm-verify-examples plus the `elm-test` suite                   |
 | `pnpm coverage`      | Open the elm-coverage report (not a gate)                       |
 | `pnpm documentation` | Open elm-doc-preview (not a gate)                               |
-| `pnpm install`       | Install dependencies and run the `postinstall` Elm patch step   |
 
 ## CI/CD
 

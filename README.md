@@ -1,7 +1,19 @@
 # ELM CQRS
 
-A [CQRS](https://en.wikipedia.org/wiki/Command_Query_Responsibility_Segregation)
-library to support separation of commands and queries on the type level.
+An Elm library for
+[CQRS](https://en.wikipedia.org/wiki/Command_Query_Responsibility_Segregation)
+(Command Query Responsibility Segregation). It gives you typed commands and
+queries whose success or error response variants are decoded automatically from
+an API payload, so your HTTP layer stays thin. Use it when you want
+command/query separation enforced at the type level.
+
+## Features
+
+- `Cqrs.Command` for instructions that return no value, success or not
+- `Cqrs.Query` for requests that return a value or an error
+- Responses decode from a payload with an `error` key (failure) or a `data` key
+  (success). Commands ignore `data`
+- Pure Elm, no JavaScript interop
 
 ## Installation
 
@@ -11,7 +23,30 @@ elm install jamesrweb/elm-cqrs
 
 ## Usage
 
-You interact with this library via the `Cqrs.Command` or `Cqrs.Query` module.
+Build a command or query with `Cqrs.Command` / `Cqrs.Query`, pointing at your
+API:
+
+```elm
+import Cqrs.Command as Command
+import Cqrs.Query as Query
+```
+
+A command sends a request and decodes only success or failure. A query also
+decodes the returned data. A typical command looks like this:
+
+```elm
+addUserCommand : User -> Cmd Msg
+addUserCommand user =
+    Command.request
+        { url = "/api/v1/user"
+        , body = User.encode user
+        , toMsg = UserCommandExecuted
+        , toError = Error.decoder
+        , defaultError = Error.Unknown
+        }
+```
+
+Point `toError` at your error decoder and `defaultError` at a fallback.
 
 It is important that your API responds in the following pseudocode format for
 both commands and queries:
@@ -45,8 +80,8 @@ To send a command, you can do the following:
 
 ```elm
 import Cqrs.Command as Command exposing (CommandResponse)
-import User exposing (User) -- An example module
-import Api.Error as Error exposing (Error) -- An example module
+import User exposing (User)
+import Api.Error as Error exposing (Error)
 
 type alias UserCommandResponse =
     CommandResponse Error
@@ -93,9 +128,9 @@ To execute a query, you can do the following:
 
 ```elm
 import Cqrs.Query as Query exposing (QueryResponse)
-import UUID exposing (UUID) -- elm install TSFoster/elm-uuid (for example)
-import Models.User exposing (User) -- An example module
-import Api.Error as Error exposing (Error) -- An example module
+import UUID exposing (UUID)
+import Models.User exposing (User)
+import Api.Error as Error exposing (Error)
 
 type alias UserQueryResponse =
     QueryResponse Error User
@@ -103,11 +138,11 @@ type alias UserQueryResponse =
 type Msg =
     UserQueryExecuted UserQueryResponse
 
-findUserQuery : Uuid -> Cmd Msg
+findUserQuery : UUID -> Cmd Msg
 findUserQuery id =
     let
         path : String
-        path = "/api/v1/user/" ++ Uuid.toString id
+        path = "/api/v1/user/" ++ UUID.toString id
     in
     Query.request {
         url = path
@@ -117,11 +152,11 @@ findUserQuery id =
         , defaultError = Error.Unknown
     }
 
-findUserQueryTask : Uuid -> Task () UserQueryResponse
+findUserQueryTask : UUID -> Task () UserQueryResponse
 findUserQueryTask id =
     let
         path : String
-        path = "/api/v1/user/" ++ Uuid.toString id
+        path = "/api/v1/user/" ++ UUID.toString id
     in
     Query.requestTask {
         url = path
@@ -130,3 +165,57 @@ findUserQueryTask id =
         , defaultError = Error.Unknown
     }
 ```
+
+
+## Repository layout
+
+```
+./
+├── .agents/            # agent configuration (DotAgents protocol)
+├── .github/            # CI and CD workflows plus shared composite actions
+├── .idea/              # JetBrains IDE run configurations (tracked)
+├── review/             # elm-review project with the custom rule set
+├── src/                # exposed package source (Cqrs, Cqrs.Command, Cqrs.Query)
+├── tests/              # elm-test suites including the decoder examples
+├── .gitattributes      # git attributes
+├── .gitignore          # git ignore rules
+├── AGENTS.md           # agent-facing documentation
+├── biome.json          # Biome config
+├── CLAUDE.md           # symlink to AGENTS.md
+├── elm.json            # Elm manifest
+├── LICENSE             # BSD 3-Clause licence
+├── package.json        # pnpm manifest and scripts
+├── pnpm-lock.yaml      # pnpm lockfile
+├── pnpm-workspace.yaml # pnpm workspace settings
+└── README.md           # this file
+```
+
+## Development
+
+Install dependencies, then run the gates:
+
+| Command              | Description                                           |
+| -------------------- | ----------------------------------------------------- |
+| `pnpm format`        | Applies `elm-format` and `Biome` fixes                |
+| `pnpm lint`          | Runs the lint checks (the gate)                       |
+| `pnpm test`          | Runs the `elm-test` suite and doc examples (the gate) |
+| `pnpm coverage`      | Opens the coverage report                             |
+| `pnpm documentation` | Opens the module documentation preview                |
+
+The usual flow is to edit, run `pnpm format`, and then `pnpm test`. Every change
+must pass `pnpm lint` and `pnpm test`. CI runs these checks automatically.
+
+## Contributing
+
+This is a personal published package. Issues and suggestions are welcome on the
+GitHub issue tracker. I make all changes myself.
+
+## Documentation
+
+Module documentation with examples lives in `src/` and is validated by the test
+suite. Agent-facing docs for this repo live in `AGENTS.md` and `.agents/`.
+
+## Licence
+
+Licensed under the
+[BSD 3-Clause Licence](https://github.com/jamesrweb/elm-cqrs/blob/main/LICENSE).
