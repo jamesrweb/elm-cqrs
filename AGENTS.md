@@ -8,16 +8,11 @@ utilities for command/query responsibility segregation (CQRS) in Elm.
 ## Layout
 
 ```
-./
-├── .git/                  # git internals
-├── .agents/                # agent configuration (DotAgents protocol)
-├── .github/
-│   ├── actions/           # composite actions for lint, test, and publish
-│   │   ├── lint/
-│   │   ├── publish/
-│   │   └── test/
-│   └── workflows/         # CI and CD workflows
+./                         # repository root
+├── .agents/               # agent configuration (DotAgents protocol)
 ├── .coverage/             # generated coverage output, gitignored
+├── .git/                  # git internals
+├── .github/               # CI and CD workflows plus shared composite actions
 ├── .idea/                 # JetBrains IDE state (only run configurations are tracked)
 ├── elm-home/              # generated patched Elm build, gitignored
 ├── elm-stuff/             # generated Elm build artefacts, gitignored
@@ -25,17 +20,17 @@ utilities for command/query responsibility segregation (CQRS) in Elm.
 ├── review/                # elm-review project
 ├── src/                   # exposed package source
 ├── tests/                 # test suites and generated verify-examples output
+├── .gitattributes         # git attributes
+├── .gitignore             # git ignore rules
 ├── AGENTS.md              # this file
+├── biome.json             # Biome configuration
 ├── CLAUDE.md              # symlink to AGENTS.md
-├── LICENSE                # BSD 3-Clause licence
-├── README.md              # human-facing documentation
-├── biome.json             # `Biome` configuration
 ├── elm.json               # Elm manifest
+├── LICENSE                # BSD 3-Clause licence
 ├── package.json           # pnpm manifest and scripts
 ├── pnpm-lock.yaml         # pnpm lockfile
 ├── pnpm-workspace.yaml    # pnpm workspace settings
-├── .gitattributes         # git attributes
-└── .gitignore             # git ignore rules
+└── README.md              # human-facing documentation
 ```
 
 ## Commands
@@ -70,8 +65,9 @@ test gate, so they must compile.
 
 ## CI/CD and releases
 
-CI runs on pushes to `main`, on all pull requests, and on manual dispatch. CD
-publishes the package on pushes to `main`. `Dependabot` runs monthly.
+CI runs on all pull requests and on manual dispatch. CD runs on pushes to
+`main` and publishes the package, and CD is CI plus the publish step, so CI does
+not also run on pushes. `Dependabot` runs monthly.
 
 ## Guardrails
 
