@@ -65,9 +65,9 @@ test gate, so they must compile.
 
 ## CI/CD and releases
 
-CI runs on all pull requests and on manual dispatch. CD runs on pushes to
-`main` and publishes the package, and CD is CI plus the publish step, so CI does
-not also run on pushes. `Dependabot` runs monthly.
+CI runs on all pull requests and on manual dispatch. CD runs on pushes to `main`
+and publishes the package, and CD is CI plus the publish step, so CI does not
+also run on pushes. `Dependabot` runs monthly.
 
 ## Guardrails
 

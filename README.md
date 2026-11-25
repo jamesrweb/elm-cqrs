@@ -166,7 +166,6 @@ findUserQueryTask id =
     }
 ```
 
-
 ## Repository layout
 
 ```
