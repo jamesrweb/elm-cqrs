@@ -169,7 +169,7 @@ findUserQueryTask id =
 ## Repository layout
 
 ```
-./
+./                      # repository root
 ├── .agents/            # agent configuration (DotAgents protocol)
 ├── .github/            # CI and CD workflows plus shared composite actions
 ├── .idea/              # JetBrains IDE run configurations (tracked)
